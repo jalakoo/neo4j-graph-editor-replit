@@ -128,51 +128,60 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     const session: Session = driver.session();
     try {
       const result = await session.executeRead(async (tx) => {
-        // Load all nodes, using name property for label if available
+        // Load all nodes with all their properties
         const nodesResult = await tx.run(`
           MATCH (n)
           RETURN 
             n.id as id,
             n.name as name,
+            properties(n) as properties,
             id(n) as elementId
         `);
 
         const nodes = nodesResult.records.map(record => {
           const id = record.get('id');
           const name = record.get('name');
+          const properties = record.get('properties');
           const elementId = record.get('elementId').toString();
 
           return {
             id: id || elementId,
-            label: name || elementId // Use name if available, fallback to elementId
+            label: name || elementId,
+            ...properties
           };
         });
 
-        // Load all relationships with their properties
+        // Load all relationships with all their properties
         const edgesResult = await tx.run(`
           MATCH (source)-[r]->(target)
           RETURN 
             r.id as id,
             r.label as label,
+            properties(r) as properties,
             source.id as sourceId,
             target.id as targetId,
             id(r) as elementId,
             id(source) as sourceElementId,
-            id(target) as targetElementId
+            id(target) as targetElementId,
+            type(r) as type
         `);
 
         const edges = edgesResult.records.map(record => {
           const id = record.get('id');
           const label = record.get('label');
+          const properties = record.get('properties');
           const elementId = record.get('elementId').toString();
           const sourceId = record.get('sourceId') || record.get('sourceElementId').toString();
           const targetId = record.get('targetId') || record.get('targetElementId').toString();
+          const type = record.get('type');
 
           return {
             id: id || elementId,
-            label: label || 'connects to',
+            label: label || type || 'connects to',
             source: sourceId,
-            target: targetId
+            target: targetId,
+            type,
+            ...properties
           };
         });
 

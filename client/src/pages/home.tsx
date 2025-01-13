@@ -3,6 +3,7 @@ import { GraphToolbar } from "@/components/graph-toolbar";
 import { NodeDialog } from "@/components/node-dialog";
 import { EdgeDialog } from "@/components/edge-dialog";
 import { DbConnectionDialog } from "@/components/db-connection-dialog";
+import { DetailsDrawer } from "@/components/details-drawer";
 import { useNeo4jStore } from "@/lib/neo4j-store";
 import { Button } from "@/components/ui/button";
 import { DatabaseIcon } from "lucide-react";
@@ -42,6 +43,7 @@ export default function Home() {
         isOpen={isConnectionDialogOpen}
         onOpenChange={setIsConnectionDialogOpen}
       />
+      <DetailsDrawer />
     </div>
   );
 }
