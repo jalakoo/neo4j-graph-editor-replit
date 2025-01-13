@@ -12,12 +12,12 @@ export function DetailsDrawer() {
 
   return (
     <Sheet open={!!selectedElement} onOpenChange={() => useGraphStore.setState({ selectedElement: null })}>
-      <SheetContent side="right" className="w-[400px]">
+      <SheetContent side="right" className="w-[400px] border-l shadow-lg">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
-        
-        <ScrollArea className="h-full mt-6">
+
+        <ScrollArea className="h-[calc(100vh-5rem)] mt-6 pr-4">
           <div className="space-y-4">
             {Object.entries(selectedElement).map(([key, value]) => (
               <div key={key} className="space-y-1">

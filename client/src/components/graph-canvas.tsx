@@ -11,7 +11,8 @@ export function GraphCanvas() {
     setSelectedElement, 
     openNodeEditDialog, 
     openEdgeEditDialog,
-    clearSelectedNodes
+    clearSelectedNodes,
+    selectedElement
   } = useGraphStore();
 
   useEffect(() => {
@@ -94,7 +95,9 @@ export function GraphCanvas() {
   return (
     <div 
       ref={containerRef} 
-      className="absolute inset-0 bg-background"
+      className={`absolute inset-0 bg-background transition-[right] duration-200 ease-in-out ${
+        selectedElement ? 'right-[400px]' : 'right-0'
+      }`}
       style={{ touchAction: "none" }}
     />
   );
