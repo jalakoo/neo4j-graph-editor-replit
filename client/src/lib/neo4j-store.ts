@@ -13,6 +13,7 @@ interface Neo4jStore {
   disconnect: () => void;
   saveGraph: (nodes: any[], edges: any[]) => Promise<void>;
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
+  updateProperty: (elementId: string, key: string, value: string, isNode: boolean) => Promise<void>;
 }
 
 // Cookie names
@@ -189,6 +190,33 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       });
 
       return result;
+    } finally {
+      await session.close();
+    }
+  },
+  updateProperty: async (elementId: string, key: string, value: string, isNode: boolean) => {
+    const { driver } = get();
+    if (!driver) throw new Error("Not connected to database");
+
+    const session: Session = driver.session();
+    try {
+      await session.executeWrite(async (tx) => {
+        const query = isNode
+          ? `
+            MATCH (n)
+            WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
+            SET n[$key] = $value
+            RETURN n
+          `
+          : `
+            MATCH ()-[r]->()
+            WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
+            SET r[$key] = $value
+            RETURN r
+          `;
+
+        await tx.run(query, { elementId, key, value });
+      });
     } finally {
       await session.close();
     }

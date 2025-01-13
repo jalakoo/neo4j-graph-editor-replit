@@ -1,12 +1,35 @@
 import { useGraphStore } from "@/lib/graph-store";
+import { useNeo4jStore } from "@/lib/neo4j-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EditableProperty } from "@/components/ui/editable-property";
 import { HelpCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function DetailsDrawer() {
   const { selectedElement } = useGraphStore();
+  const { updateProperty } = useNeo4jStore();
+  const { toast } = useToast();
 
   const isEdge = selectedElement && 'source' in selectedElement;
   const title = isEdge ? 'Relationship Details' : 'Node Details';
+
+  const handlePropertyUpdate = async (key: string, value: string) => {
+    if (!selectedElement) return;
+
+    try {
+      await updateProperty(selectedElement.id, key, value, !isEdge);
+      toast({
+        title: "Success",
+        description: "Property updated successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update property",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="fixed top-[73px] right-0 w-[400px] h-[calc(100vh-73px)] border-l bg-background shadow-lg">
@@ -24,9 +47,15 @@ export function DetailsDrawer() {
                 <p className="text-sm font-medium text-muted-foreground">
                   {key}
                 </p>
-                <p className="text-sm">
-                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                </p>
+                {typeof value === 'object' ? (
+                  <p className="text-sm">{JSON.stringify(value)}</p>
+                ) : (
+                  <EditableProperty
+                    propertyKey={key}
+                    value={String(value)}
+                    onSave={(newValue) => handlePropertyUpdate(key, newValue)}
+                  />
+                )}
               </div>
             ))}
           </div>
