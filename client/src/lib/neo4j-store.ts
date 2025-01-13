@@ -101,28 +101,49 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     const session: Session = driver.session();
     try {
       const result = await session.executeRead(async (tx) => {
-        // Load all nodes with their properties
-        const nodesResult = await tx.run('MATCH (n:Node) RETURN n');
+        // Load all nodes, using name property for label if available
+        const nodesResult = await tx.run(`
+          MATCH (n)
+          RETURN 
+            id(n) as elementId,
+            properties(n) as props
+        `);
+
         const nodes = nodesResult.records.map(record => {
-          const node = record.get('n');
+          const props = record.get('props');
+          const elementId = record.get('elementId').toString();
           return {
-            id: node.properties.id,
-            label: node.properties.label
+            id: props.id || elementId,
+            label: props.name || elementId // Use name if available, fallback to elementId
           };
         });
 
         // Load all relationships with their properties
-        const edgesResult = await tx.run(
-          `MATCH (source:Node)-[r:CONNECTS_TO]->(target:Node)
-           RETURN r.id as id, r.label as label, source.id as source, target.id as target`
-        );
+        const edgesResult = await tx.run(`
+          MATCH (source)-[r]->(target)
+          RETURN 
+            id(r) as elementId,
+            type(r) as type,
+            properties(r) as props,
+            source.id as sourceId,
+            target.id as targetId,
+            id(source) as sourceElementId,
+            id(target) as targetElementId
+        `);
 
-        const edges = edgesResult.records.map(record => ({
-          id: record.get('id'),
-          label: record.get('label'),
-          source: record.get('source'),
-          target: record.get('target')
-        }));
+        const edges = edgesResult.records.map(record => {
+          const props = record.get('props');
+          const elementId = record.get('elementId').toString();
+          const sourceId = record.get('sourceId') || record.get('sourceElementId').toString();
+          const targetId = record.get('targetId') || record.get('targetElementId').toString();
+
+          return {
+            id: props.id || elementId,
+            label: props.label || record.get('type'),
+            source: sourceId,
+            target: targetId
+          };
+        });
 
         return { nodes, edges };
       });
