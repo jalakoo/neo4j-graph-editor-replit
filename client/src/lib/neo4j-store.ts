@@ -25,7 +25,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     try {
       const driver = neo4j.driver(url, neo4j.auth.basic(username, password));
       await driver.verifyConnectivity();
-      
+
       set({ 
         driver,
         url,
@@ -65,7 +65,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       await session.executeWrite(async (tx) => {
         // Clear existing graph
         await tx.run('MATCH (n) DETACH DELETE n');
-        
+
         // Create nodes
         for (const node of nodes) {
           await tx.run(
@@ -73,7 +73,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             { id: node.id, label: node.label }
           );
         }
-        
+
         // Create relationships
         for (const edge of edges) {
           await tx.run(
@@ -101,19 +101,30 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     const session: Session = driver.session();
     try {
       const result = await session.executeRead(async (tx) => {
-        const nodesResult = await tx.run('MATCH (n:Node) RETURN n');
-        const nodes = nodesResult.records.map(record => record.get('n').properties);
+        // Load all nodes with their properties
+        const nodesResult = await tx.run('MATCH (n) RETURN n');
+        const nodes = nodesResult.records.map(record => {
+          const node = record.get('n');
+          return {
+            id: node.properties.id,
+            label: node.properties.label,
+            ...node.properties // Include all properties
+          };
+        });
 
+        // Load all relationships with their properties
         const edgesResult = await tx.run(
-          `MATCH (source:Node)-[r:CONNECTS_TO]->(target:Node)
-           RETURN source.id as source, target.id as target, r.id as id, r.label as label`
+          `MATCH (source)-[r:CONNECTS_TO]->(target)
+           RETURN r.id as id, r.label as label, source.id as source, target.id as target, r.*` // Include all relationship properties
         );
-        
+
         const edges = edgesResult.records.map(record => ({
           id: record.get('id'),
+          label: record.get('label'),
           source: record.get('source'),
           target: record.get('target'),
-          label: record.get('label')
+          ...record.get('r').properties // Include all relationship properties
+
         }));
 
         return { nodes, edges };
