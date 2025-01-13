@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Tooltip } from "@/components/ui/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGraphStore } from "@/lib/graph-store";
 import { Plus, Link2, Undo2, Redo2, Trash2 } from "lucide-react";
 
