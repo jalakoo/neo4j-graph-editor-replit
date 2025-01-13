@@ -102,29 +102,26 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     try {
       const result = await session.executeRead(async (tx) => {
         // Load all nodes with their properties
-        const nodesResult = await tx.run('MATCH (n) RETURN n');
+        const nodesResult = await tx.run('MATCH (n:Node) RETURN n');
         const nodes = nodesResult.records.map(record => {
           const node = record.get('n');
           return {
             id: node.properties.id,
-            label: node.properties.label,
-            ...node.properties // Include all properties
+            label: node.properties.label
           };
         });
 
         // Load all relationships with their properties
         const edgesResult = await tx.run(
-          `MATCH (source)-[r:CONNECTS_TO]->(target)
-           RETURN r.id as id, r.label as label, source.id as source, target.id as target, r.*` // Include all relationship properties
+          `MATCH (source:Node)-[r:CONNECTS_TO]->(target:Node)
+           RETURN r.id as id, r.label as label, source.id as source, target.id as target`
         );
 
         const edges = edgesResult.records.map(record => ({
           id: record.get('id'),
           label: record.get('label'),
           source: record.get('source'),
-          target: record.get('target'),
-          ...record.get('r').properties // Include all relationship properties
-
+          target: record.get('target')
         }));
 
         return { nodes, edges };
