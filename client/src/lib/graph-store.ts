@@ -21,6 +21,7 @@ interface GraphStore {
   nodes: Node[];
   edges: Edge[];
   selectedElement: (Node | Edge) | null;
+  selectedNodes: Node[];
   isNodeDialogOpen: boolean;
   isEdgeDialogOpen: boolean;
   editingNode: Node | null;
@@ -31,6 +32,8 @@ interface GraphStore {
   canRedo: boolean;
 
   setSelectedElement: (element: (Node | Edge) | null) => void;
+  addSelectedNode: (node: Node) => void;
+  clearSelectedNodes: () => void;
   openNodeDialog: () => void;
   openNodeEditDialog: (node: Node) => void;
   closeNodeDialog: () => void;
@@ -51,6 +54,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   nodes: [],
   edges: [],
   selectedElement: null,
+  selectedNodes: [],
   editingNode: null,
   editingEdge: null,
   isNodeDialogOpen: false,
@@ -60,7 +64,22 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   canUndo: false,
   canRedo: false,
 
-  setSelectedElement: (element) => set({ selectedElement: element }),
+  setSelectedElement: (element) => {
+    if (element && !('source' in element)) {
+      // If a node is selected, add it to selectedNodes (max 2)
+      const node = element as Node;
+      get().addSelectedNode(node);
+    }
+    set({ selectedElement: element });
+  },
+
+  addSelectedNode: (node) => {
+    const currentSelected = get().selectedNodes;
+    const newSelected = [...currentSelected, node].slice(-2); // Keep only last 2
+    set({ selectedNodes: newSelected });
+  },
+
+  clearSelectedNodes: () => set({ selectedNodes: [] }),
 
   openNodeDialog: () => set({ 
     isNodeDialogOpen: true,
@@ -77,19 +96,26 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     editingNode: null 
   }),
 
-  openEdgeDialog: () => set({ 
-    isEdgeDialogOpen: true,
-    editingEdge: null
-  }),
+  openEdgeDialog: () => {
+    const { selectedNodes } = get();
+    set({ 
+      isEdgeDialogOpen: true,
+      editingEdge: null,
+      // Clear selected nodes after using them
+      selectedNodes: []
+    });
+  },
 
   openEdgeEditDialog: (edge) => set({ 
     isEdgeDialogOpen: true,
-    editingEdge: edge 
+    editingEdge: edge,
+    selectedNodes: []
   }),
 
   closeEdgeDialog: () => set({ 
     isEdgeDialogOpen: false,
-    editingEdge: null 
+    editingEdge: null,
+    selectedNodes: []
   }),
 
   addNode: (node) => {

@@ -13,6 +13,7 @@ export function EdgeDialog() {
     addEdge, 
     updateEdge,
     editingEdge,
+    selectedNodes,
     nodes 
   } = useGraphStore();
 
@@ -26,11 +27,12 @@ export function EdgeDialog() {
       setTarget(editingEdge.target);
       setLabel(editingEdge.label);
     } else {
-      setSource("");
-      setTarget("");
+      // Auto-fill source and target from selected nodes if available
+      setSource(selectedNodes[0]?.id || "");
+      setTarget(selectedNodes[1]?.id || "");
       setLabel("");
     }
-  }, [editingEdge, isEdgeDialogOpen]);
+  }, [editingEdge, selectedNodes, isEdgeDialogOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
