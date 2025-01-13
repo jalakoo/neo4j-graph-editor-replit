@@ -23,19 +23,22 @@ interface GraphStore {
   selectedElement: (Node | Edge) | null;
   isNodeDialogOpen: boolean;
   isEdgeDialogOpen: boolean;
+  editingElement: (Node | Edge) | null;
   history: HistoryState[];
   currentHistoryIndex: number;
-  
+
   setSelectedElement: (element: (Node | Edge) | null) => void;
-  openNodeDialog: () => void;
+  openNodeDialog: (node?: Node) => void;
   closeNodeDialog: () => void;
-  openEdgeDialog: () => void;
+  openEdgeDialog: (edge?: Edge) => void;
   closeEdgeDialog: () => void;
-  
+
   addNode: (node: Node) => void;
+  updateNode: (id: string, label: string) => void;
   addEdge: (edge: Edge) => void;
+  updateEdge: (id: string, label: string) => void;
   deleteSelected: () => void;
-  
+
   canUndo: boolean;
   canRedo: boolean;
   undo: () => void;
@@ -46,16 +49,33 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   nodes: [],
   edges: [],
   selectedElement: null,
+  editingElement: null,
   isNodeDialogOpen: false,
   isEdgeDialogOpen: false,
   history: [{ nodes: [], edges: [] }],
   currentHistoryIndex: 0,
 
   setSelectedElement: (element) => set({ selectedElement: element }),
-  openNodeDialog: () => set({ isNodeDialogOpen: true }),
-  closeNodeDialog: () => set({ isNodeDialogOpen: false }),
-  openEdgeDialog: () => set({ isEdgeDialogOpen: true }),
-  closeEdgeDialog: () => set({ isEdgeDialogOpen: false }),
+
+  openNodeDialog: (node) => set({ 
+    isNodeDialogOpen: true,
+    editingElement: node || null 
+  }),
+
+  closeNodeDialog: () => set({ 
+    isNodeDialogOpen: false,
+    editingElement: null 
+  }),
+
+  openEdgeDialog: (edge) => set({ 
+    isEdgeDialogOpen: true,
+    editingElement: edge || null 
+  }),
+
+  closeEdgeDialog: () => set({ 
+    isEdgeDialogOpen: false,
+    editingElement: null 
+  }),
 
   addNode: (node) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
@@ -63,11 +83,26 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       nodes: [...nodes, node],
       edges
     };
-    
+
     set({
       nodes: newState.nodes,
       history: [...history.slice(0, currentHistoryIndex + 1), newState],
       currentHistoryIndex: currentHistoryIndex + 1
+    });
+  },
+
+  updateNode: (id, label) => {
+    const { nodes, edges, currentHistoryIndex, history } = get();
+    const newNodes = nodes.map(node => 
+      node.id === id ? { ...node, label } : node
+    );
+    const newState = { nodes: newNodes, edges };
+
+    set({
+      nodes: newNodes,
+      history: [...history.slice(0, currentHistoryIndex + 1), newState],
+      currentHistoryIndex: currentHistoryIndex + 1,
+      editingElement: null
     });
   },
 
@@ -77,11 +112,26 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       nodes,
       edges: [...edges, edge]
     };
-    
+
     set({
       edges: newState.edges,
       history: [...history.slice(0, currentHistoryIndex + 1), newState],
       currentHistoryIndex: currentHistoryIndex + 1
+    });
+  },
+
+  updateEdge: (id, label) => {
+    const { nodes, edges, currentHistoryIndex, history } = get();
+    const newEdges = edges.map(edge => 
+      edge.id === id ? { ...edge, label } : edge
+    );
+    const newState = { nodes, edges: newEdges };
+
+    set({
+      edges: newEdges,
+      history: [...history.slice(0, currentHistoryIndex + 1), newState],
+      currentHistoryIndex: currentHistoryIndex + 1,
+      editingElement: null
     });
   },
 
@@ -100,7 +150,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     }
 
     const newState = { nodes: newNodes, edges: newEdges };
-    
+
     set({
       nodes: newState.nodes,
       edges: newState.edges,
