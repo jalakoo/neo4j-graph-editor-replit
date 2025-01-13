@@ -10,7 +10,8 @@ export function GraphCanvas() {
     edges, 
     setSelectedElement, 
     openNodeEditDialog, 
-    openEdgeEditDialog 
+    openEdgeEditDialog,
+    clearSelectedNodes
   } = useGraphStore();
 
   useEffect(() => {
@@ -57,6 +58,10 @@ export function GraphCanvas() {
 
     cyRef.current.on("tap", "node, edge", (evt) => {
       const element = evt.target.data();
+      // Clear selected nodes when clicking an edge
+      if ('source' in element) {
+        clearSelectedNodes();
+      }
       setSelectedElement(element);
     });
 

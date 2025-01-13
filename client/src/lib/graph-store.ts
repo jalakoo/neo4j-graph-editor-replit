@@ -75,8 +75,11 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   addSelectedNode: (node) => {
     const currentSelected = get().selectedNodes;
-    const newSelected = [...currentSelected, node].slice(-2); // Keep only last 2
-    set({ selectedNodes: newSelected });
+    // Don't add if already selected
+    if (!currentSelected.find(n => n.id === node.id)) {
+      const newSelected = [...currentSelected, node].slice(-2); // Keep only last 2
+      set({ selectedNodes: newSelected });
+    }
   },
 
   clearSelectedNodes: () => set({ selectedNodes: [] }),
@@ -97,12 +100,9 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   }),
 
   openEdgeDialog: () => {
-    const { selectedNodes } = get();
     set({ 
       isEdgeDialogOpen: true,
-      editingEdge: null,
-      // Clear selected nodes after using them
-      selectedNodes: []
+      editingEdge: null
     });
   },
 
