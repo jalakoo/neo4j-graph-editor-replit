@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useNeo4jStore } from "./neo4j-store";
 
 interface Node {
   id: string;
@@ -48,6 +49,8 @@ interface GraphStore {
   deleteSelected: () => void;
   undo: () => void;
   redo: () => void;
+  saveToDb: () => Promise<void>;
+  loadFromDb: () => Promise<void>;
 }
 
 export const useGraphStore = create<GraphStore>((set, get) => ({
@@ -66,7 +69,6 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   setSelectedElement: (element) => {
     if (element && !('source' in element)) {
-      // If a node is selected, add it to selectedNodes (max 2)
       const node = element as Node;
       get().addSelectedNode(node);
     }
@@ -75,9 +77,8 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   addSelectedNode: (node) => {
     const currentSelected = get().selectedNodes;
-    // Don't add if already selected
     if (!currentSelected.find(n => n.id === node.id)) {
-      const newSelected = [...currentSelected, node].slice(-2); // Keep only last 2
+      const newSelected = [...currentSelected, node].slice(-2);
       set({ selectedNodes: newSelected });
     }
   },
@@ -242,5 +243,36 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
         canRedo: newIndex < history.length - 1
       });
     }
+  },
+
+  saveToDb: async () => {
+    const { nodes, edges } = get();
+    const { saveGraph, isConnected } = useNeo4jStore.getState();
+
+    if (!isConnected) {
+      throw new Error("Not connected to database");
+    }
+
+    await saveGraph(nodes, edges);
+  },
+
+  loadFromDb: async () => {
+    const { loadGraph, isConnected } = useNeo4jStore.getState();
+
+    if (!isConnected) {
+      throw new Error("Not connected to database");
+    }
+
+    const { nodes, edges } = await loadGraph();
+    set({
+      nodes,
+      edges,
+      selectedElement: null,
+      selectedNodes: [],
+      history: [{ nodes: [], edges: [] }, { nodes, edges }],
+      currentHistoryIndex: 1,
+      canUndo: true,
+      canRedo: false
+    });
   }
 }));
