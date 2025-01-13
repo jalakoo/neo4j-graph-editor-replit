@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import neo4j, { Driver, Session } from 'neo4j-driver';
+import { getCookie, setCookie, deleteCookie } from './cookie-utils';
 
 interface Neo4jStore {
   url: string;
@@ -14,9 +15,17 @@ interface Neo4jStore {
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
 }
 
+// Cookie names
+const URL_COOKIE = 'neo4j_url';
+const USERNAME_COOKIE = 'neo4j_username';
+
+// Initialize store with saved credentials
+const savedUrl = getCookie(URL_COOKIE) || '';
+const savedUsername = getCookie(USERNAME_COOKIE) || '';
+
 export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
-  url: '',
-  username: '',
+  url: savedUrl,
+  username: savedUsername,
   isConnected: false,
   driver: null,
   error: null,
@@ -25,6 +34,10 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     try {
       const driver = neo4j.driver(url, neo4j.auth.basic(username, password));
       await driver.verifyConnectivity();
+
+      // Save credentials to cookies
+      setCookie(URL_COOKIE, url);
+      setCookie(USERNAME_COOKIE, username);
 
       set({ 
         driver,
@@ -47,6 +60,10 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     if (driver) {
       driver.close();
     }
+    // Clear cookies
+    deleteCookie(URL_COOKIE);
+    deleteCookie(USERNAME_COOKIE);
+
     set({
       driver: null,
       isConnected: false,

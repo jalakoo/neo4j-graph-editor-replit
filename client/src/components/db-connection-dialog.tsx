@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNeo4jStore } from "@/lib/neo4j-store";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -12,19 +12,26 @@ interface Props {
 }
 
 export function DbConnectionDialog({ isOpen, onOpenChange }: Props) {
-  const [url, setUrl] = useState("");
-  const [username, setUsername] = useState("");
+  const neo4jStore = useNeo4jStore();
+  const [url, setUrl] = useState(neo4jStore.url);
+  const [username, setUsername] = useState(neo4jStore.username);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const connect = useNeo4jStore(state => state.connect);
   const error = useNeo4jStore(state => state.error);
   const { toast } = useToast();
 
+  // Update form when store values change
+  useEffect(() => {
+    setUrl(neo4jStore.url);
+    setUsername(neo4jStore.username);
+  }, [neo4jStore.url, neo4jStore.username]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       await connect(url, username, password);
       if (!error) {
