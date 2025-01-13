@@ -11,8 +11,7 @@ export function GraphCanvas() {
     setSelectedElement, 
     openNodeEditDialog, 
     openEdgeEditDialog,
-    clearSelectedNodes,
-    selectedElement
+    clearSelectedNodes
   } = useGraphStore();
 
   useEffect(() => {
@@ -59,7 +58,6 @@ export function GraphCanvas() {
 
     cyRef.current.on("tap", "node, edge", (evt) => {
       const element = evt.target.data();
-      // Clear selected nodes when clicking an edge
       if ('source' in element) {
         clearSelectedNodes();
       }
@@ -95,9 +93,7 @@ export function GraphCanvas() {
   return (
     <div 
       ref={containerRef} 
-      className={`absolute inset-0 bg-background transition-[right] duration-200 ease-in-out ${
-        selectedElement ? 'right-[400px]' : 'right-0'
-      }`}
+      className="absolute inset-0 right-[400px] bg-background"
       style={{ touchAction: "none" }}
     />
   );
