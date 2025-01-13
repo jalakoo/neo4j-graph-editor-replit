@@ -5,7 +5,13 @@ import { useGraphStore } from "@/lib/graph-store";
 export function GraphCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
-  const { nodes, edges, setSelectedElement, openNodeDialog, openEdgeDialog } = useGraphStore();
+  const { 
+    nodes, 
+    edges, 
+    setSelectedElement, 
+    openNodeEditDialog, 
+    openEdgeEditDialog 
+  } = useGraphStore();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -50,18 +56,18 @@ export function GraphCanvas() {
     });
 
     cyRef.current.on("tap", "node, edge", (evt) => {
-      const element = evt.target;
-      setSelectedElement(element.data());
+      const element = evt.target.data();
+      setSelectedElement(element);
     });
 
     cyRef.current.on("dblclick", "node", (evt) => {
       const node = evt.target.data();
-      openNodeDialog(node);
+      openNodeEditDialog(node);
     });
 
     cyRef.current.on("dblclick", "edge", (evt) => {
       const edge = evt.target.data();
-      openEdgeDialog(edge);
+      openEdgeEditDialog(edge);
     });
 
     return () => {

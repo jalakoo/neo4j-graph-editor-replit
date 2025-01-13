@@ -11,33 +11,25 @@ export function NodeDialog() {
     closeNodeDialog, 
     addNode, 
     updateNode,
-    editingElement 
+    editingNode 
   } = useGraphStore();
 
   const [label, setLabel] = useState("");
-  const isEditing = editingElement && !('source' in editingElement);
 
   useEffect(() => {
-    // Clear form when dialog closes
-    if (!isNodeDialogOpen) {
-      setLabel("");
-      return;
-    }
-
-    // Set label when editing
-    if (isEditing) {
-      setLabel(editingElement.label);
+    if (editingNode) {
+      setLabel(editingNode.label);
     } else {
       setLabel("");
     }
-  }, [isNodeDialogOpen, isEditing, editingElement]);
+  }, [editingNode, isNodeDialogOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!label.trim()) return;
 
-    if (isEditing && editingElement) {
-      updateNode(editingElement.id, label.trim());
+    if (editingNode) {
+      updateNode(editingNode.id, label.trim());
     } else {
       addNode({
         id: `n${Date.now()}`,
@@ -52,7 +44,7 @@ export function NodeDialog() {
     <Dialog open={isNodeDialogOpen} onOpenChange={closeNodeDialog}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Node' : 'Add Node'}</DialogTitle>
+          <DialogTitle>{editingNode ? 'Edit Node' : 'Add Node'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,7 +62,7 @@ export function NodeDialog() {
             <Button type="button" variant="outline" onClick={closeNodeDialog}>
               Cancel
             </Button>
-            <Button type="submit">{isEditing ? 'Update' : 'Add'} Node</Button>
+            <Button type="submit">{editingNode ? 'Update' : 'Add'} Node</Button>
           </div>
         </form>
       </DialogContent>

@@ -12,7 +12,7 @@ export function EdgeDialog() {
     closeEdgeDialog, 
     addEdge, 
     updateEdge,
-    editingElement,
+    editingEdge,
     nodes 
   } = useGraphStore();
 
@@ -20,26 +20,24 @@ export function EdgeDialog() {
   const [target, setTarget] = useState("");
   const [label, setLabel] = useState("");
 
-  const isEditing = editingElement && 'source' in editingElement;
-
   useEffect(() => {
-    if (isEditing) {
-      setSource(editingElement.source);
-      setTarget(editingElement.target);
-      setLabel(editingElement.label);
+    if (editingEdge) {
+      setSource(editingEdge.source);
+      setTarget(editingEdge.target);
+      setLabel(editingEdge.label);
     } else {
       setSource("");
       setTarget("");
       setLabel("");
     }
-  }, [isEditing, editingElement]);
+  }, [editingEdge, isEdgeDialogOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!source || !target || !label.trim()) return;
 
-    if (isEditing && editingElement) {
-      updateEdge(editingElement.id, label.trim());
+    if (editingEdge) {
+      updateEdge(editingEdge.id, label.trim());
     } else {
       addEdge({
         id: `e${Date.now()}`,
@@ -49,9 +47,6 @@ export function EdgeDialog() {
       });
     }
 
-    setSource("");
-    setTarget("");
-    setLabel("");
     closeEdgeDialog();
   };
 
@@ -59,11 +54,11 @@ export function EdgeDialog() {
     <Dialog open={isEdgeDialogOpen} onOpenChange={closeEdgeDialog}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Edge' : 'Add Edge'}</DialogTitle>
+          <DialogTitle>{editingEdge ? 'Edit Edge' : 'Add Edge'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!isEditing && (
+          {!editingEdge && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="source">Source Node</Label>
@@ -113,7 +108,7 @@ export function EdgeDialog() {
             <Button type="button" variant="outline" onClick={closeEdgeDialog}>
               Cancel
             </Button>
-            <Button type="submit">{isEditing ? 'Update' : 'Add'} Edge</Button>
+            <Button type="submit">{editingEdge ? 'Update' : 'Add'} Edge</Button>
           </div>
         </form>
       </DialogContent>
