@@ -27,6 +27,8 @@ interface GraphStore {
   editingEdge: Edge | null;
   history: HistoryState[];
   currentHistoryIndex: number;
+  canUndo: boolean;
+  canRedo: boolean;
 
   setSelectedElement: (element: (Node | Edge) | null) => void;
   openNodeDialog: () => void;
@@ -41,9 +43,6 @@ interface GraphStore {
   addEdge: (edge: Edge) => void;
   updateEdge: (id: string, label: string) => void;
   deleteSelected: () => void;
-
-  canUndo: boolean;
-  canRedo: boolean;
   undo: () => void;
   redo: () => void;
 }
@@ -58,6 +57,8 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   isEdgeDialogOpen: false,
   history: [{ nodes: [], edges: [] }],
   currentHistoryIndex: 0,
+  canUndo: false,
+  canRedo: false,
 
   setSelectedElement: (element) => set({ selectedElement: element }),
 
@@ -93,6 +94,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   addNode: (node) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
+    const newHistory = history.slice(0, currentHistoryIndex + 1);
     const newState = {
       nodes: [...nodes, node],
       edges
@@ -100,13 +102,16 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
     set({
       nodes: newState.nodes,
-      history: [...history.slice(0, currentHistoryIndex + 1), newState],
-      currentHistoryIndex: currentHistoryIndex + 1
+      history: [...newHistory, newState],
+      currentHistoryIndex: currentHistoryIndex + 1,
+      canUndo: true,
+      canRedo: false
     });
   },
 
   updateNode: (id, label) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
+    const newHistory = history.slice(0, currentHistoryIndex + 1);
     const newNodes = nodes.map(node => 
       node.id === id ? { ...node, label } : node
     );
@@ -114,13 +119,16 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
     set({
       nodes: newNodes,
-      history: [...history.slice(0, currentHistoryIndex + 1), newState],
-      currentHistoryIndex: currentHistoryIndex + 1
+      history: [...newHistory, newState],
+      currentHistoryIndex: currentHistoryIndex + 1,
+      canUndo: true,
+      canRedo: false
     });
   },
 
   addEdge: (edge) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
+    const newHistory = history.slice(0, currentHistoryIndex + 1);
     const newState = {
       nodes,
       edges: [...edges, edge]
@@ -128,13 +136,16 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
     set({
       edges: newState.edges,
-      history: [...history.slice(0, currentHistoryIndex + 1), newState],
-      currentHistoryIndex: currentHistoryIndex + 1
+      history: [...newHistory, newState],
+      currentHistoryIndex: currentHistoryIndex + 1,
+      canUndo: true,
+      canRedo: false
     });
   },
 
   updateEdge: (id, label) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
+    const newHistory = history.slice(0, currentHistoryIndex + 1);
     const newEdges = edges.map(edge => 
       edge.id === id ? { ...edge, label } : edge
     );
@@ -142,8 +153,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
     set({
       edges: newEdges,
-      history: [...history.slice(0, currentHistoryIndex + 1), newState],
-      currentHistoryIndex: currentHistoryIndex + 1
+      history: [...newHistory, newState],
+      currentHistoryIndex: currentHistoryIndex + 1,
+      canUndo: true,
+      canRedo: false
     });
   },
 
@@ -161,23 +174,18 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       newEdges = edges.filter(e => e.source !== selectedElement.id && e.target !== selectedElement.id);
     }
 
+    const newHistory = history.slice(0, currentHistoryIndex + 1);
     const newState = { nodes: newNodes, edges: newEdges };
 
     set({
       nodes: newState.nodes,
       edges: newState.edges,
       selectedElement: null,
-      history: [...history.slice(0, currentHistoryIndex + 1), newState],
-      currentHistoryIndex: currentHistoryIndex + 1
+      history: [...newHistory, newState],
+      currentHistoryIndex: currentHistoryIndex + 1,
+      canUndo: true,
+      canRedo: false
     });
-  },
-
-  get canUndo() {
-    return get().currentHistoryIndex > 0;
-  },
-
-  get canRedo() {
-    return get().currentHistoryIndex < get().history.length - 1;
   },
 
   undo: () => {
@@ -188,7 +196,9 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       set({
         nodes: state.nodes,
         edges: state.edges,
-        currentHistoryIndex: newIndex
+        currentHistoryIndex: newIndex,
+        canUndo: newIndex > 0,
+        canRedo: true
       });
     }
   },
@@ -201,7 +211,9 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       set({
         nodes: state.nodes,
         edges: state.edges,
-        currentHistoryIndex: newIndex
+        currentHistoryIndex: newIndex,
+        canUndo: true,
+        canRedo: newIndex < history.length - 1
       });
     }
   }
