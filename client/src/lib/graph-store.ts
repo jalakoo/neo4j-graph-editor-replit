@@ -4,6 +4,7 @@ import { useNeo4jStore } from "./neo4j-store";
 interface Node {
   id: string;
   label: string;
+  [key: string]: any; // Allow additional properties
 }
 
 interface Edge {
@@ -11,6 +12,7 @@ interface Edge {
   source: string;
   target: string;
   label: string;
+  [key: string]: any; // Allow additional properties
 }
 
 interface HistoryState {
@@ -264,12 +266,28 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     }
 
     const { nodes, edges } = await loadGraph();
+
+    // Ensure nodes and edges have required properties
+    const validatedNodes = nodes.map(node => ({
+      ...node,
+      id: node.id || `n${Date.now()}`,
+      label: node.label || 'Unnamed Node'
+    }));
+
+    const validatedEdges = edges.map(edge => ({
+      ...edge,
+      id: edge.id || `e${Date.now()}`,
+      label: edge.label || 'Unnamed Edge',
+      source: edge.source,
+      target: edge.target
+    }));
+
     set({
-      nodes,
-      edges,
+      nodes: validatedNodes,
+      edges: validatedEdges,
       selectedElement: null,
       selectedNodes: [],
-      history: [{ nodes: [], edges: [] }, { nodes, edges }],
+      history: [{ nodes: [], edges: [] }, { nodes: validatedNodes, edges: validatedEdges }],
       currentHistoryIndex: 1,
       canUndo: true,
       canRedo: false
