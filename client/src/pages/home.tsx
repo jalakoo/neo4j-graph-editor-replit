@@ -17,7 +17,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Network Graph Visualizer</h1>
+          <h1 className="text-2xl font-bold">Neo4j Graph Editor</h1>
 
           <div className="flex items-center gap-2">
             <Button
