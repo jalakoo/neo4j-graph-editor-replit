@@ -13,20 +13,25 @@ export function DetailsPanel() {
   const getCommonProperties = (elements: any[]): PropertyItem[] => {
     if (!elements.length) return [];
 
-    // Get all property keys from the first element
-    const firstElementKeys = Object.keys(elements[0]).filter(key => 
-      !['id', 'source', 'target'].includes(key)
-    );
+    // Get all property keys from all elements
+    const allKeys = new Set<string>();
+    elements.forEach(el => {
+      Object.keys(el).forEach(key => {
+        if (!['id', 'source', 'target'].includes(key)) {
+          allKeys.add(key);
+        }
+      });
+    });
 
     // Filter for keys that exist with the same value in all elements
-    const commonProps = firstElementKeys.filter(key => 
-      elements.every(el => el[key] === elements[0][key])
-    );
-
-    return commonProps.map(key => ({
-      key,
-      value: elements[0][key]
-    }));
+    return Array.from(allKeys)
+      .filter(key => elements.every(el => 
+        el[key] !== undefined && el[key] === elements[0][key]
+      ))
+      .map(key => ({
+        key,
+        value: String(elements[0][key])
+      }));
   };
 
   const getProperties = (): PropertyItem[] => {
@@ -39,13 +44,12 @@ export function DetailsPanel() {
 
     // Single element selected (node or edge)
     if (selectedElement) {
-      const props = Object.entries(selectedElement)
+      return Object.entries(selectedElement)
         .filter(([key]) => !['id', 'source', 'target'].includes(key))
         .map(([key, value]) => ({
           key,
-          value: String(value)
+          value: typeof value === 'object' ? JSON.stringify(value) : String(value)
         }));
-      return props;
     }
 
     return [];
@@ -69,10 +73,10 @@ export function DetailsPanel() {
             <div className="space-y-4">
               {properties.map(({ key, value }) => (
                 <div key={key} className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {key}
+                  <p className="text-sm font-medium text-muted-foreground capitalize">
+                    {key.replace(/([A-Z])/g, ' $1').trim()}
                   </p>
-                  <p className="text-sm">
+                  <p className="text-sm break-words">
                     {value}
                   </p>
                 </div>
