@@ -23,6 +23,8 @@ const USERNAME_COOKIE = 'neo4j_username';
 const savedUrl = getCookie(URL_COOKIE) || '';
 const savedUsername = getCookie(USERNAME_COOKIE) || '';
 
+console.log('Loading saved credentials:', { savedUrl, savedUsername });
+
 export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
   url: savedUrl,
   username: savedUsername,
@@ -32,12 +34,15 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
 
   connect: async (url: string, username: string, password: string) => {
     try {
+      console.log('Connecting with credentials:', { url, username });
       const driver = neo4j.driver(url, neo4j.auth.basic(username, password));
       await driver.verifyConnectivity();
 
-      // Save credentials to cookies
+      // Save credentials to cookies with explicit options
       setCookie(URL_COOKIE, url);
       setCookie(USERNAME_COOKIE, username);
+
+      console.log('Saved credentials to cookies');
 
       set({ 
         driver,
@@ -47,6 +52,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         error: null
       });
     } catch (err) {
+      console.error('Connection error:', err);
       set({ 
         error: err instanceof Error ? err.message : 'Failed to connect to database',
         isConnected: false,
@@ -60,7 +66,9 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     if (driver) {
       driver.close();
     }
+
     // Clear cookies
+    console.log('Clearing cookies');
     deleteCookie(URL_COOKIE);
     deleteCookie(USERNAME_COOKIE);
 

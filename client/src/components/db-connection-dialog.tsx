@@ -24,9 +24,26 @@ export function DbConnectionDialog({ isOpen, onOpenChange }: Props) {
 
   // Update form when store values change
   useEffect(() => {
+    console.log('Updating form with stored values:', { 
+      storeUrl: neo4jStore.url, 
+      storeUsername: neo4jStore.username 
+    });
     setUrl(neo4jStore.url);
     setUsername(neo4jStore.username);
   }, [neo4jStore.url, neo4jStore.username]);
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      console.log('Dialog opened, initializing form with:', { 
+        url: neo4jStore.url, 
+        username: neo4jStore.username 
+      });
+      setUrl(neo4jStore.url);
+      setUsername(neo4jStore.username);
+      setPassword("");
+    }
+  }, [isOpen, neo4jStore.url, neo4jStore.username]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
