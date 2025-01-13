@@ -38,7 +38,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       const driver = neo4j.driver(url, neo4j.auth.basic(username, password));
       await driver.verifyConnectivity();
 
-      // Save credentials to cookies
+      // Save credentials to cookies with explicit options
       setCookie(URL_COOKIE, url);
       setCookie(USERNAME_COOKIE, username);
 
@@ -92,26 +92,25 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         // Clear existing graph
         await tx.run('MATCH (n) DETACH DELETE n');
 
-        // Create nodes with all properties
+        // Create nodes
         for (const node of nodes) {
-          const { id, label, ...properties } = node;
           await tx.run(
-            'CREATE (n:Node $properties)',
-            { properties: { id, label, ...properties } }
+            'CREATE (n:Node {id: $id, label: $label})',
+            { id: node.id, label: node.label }
           );
         }
 
-        // Create relationships with all properties
+        // Create relationships
         for (const edge of edges) {
-          const { id, label, source, target, ...properties } = edge;
           await tx.run(
             `MATCH (source:Node {id: $sourceId})
              MATCH (target:Node {id: $targetId})
-             CREATE (source)-[r:CONNECTS_TO $properties]->(target)`,
+             CREATE (source)-[r:CONNECTS_TO {id: $id, label: $label}]->(target)`,
             { 
-              sourceId: source,
-              targetId: target,
-              properties: { id, label, ...properties }
+              id: edge.id,
+              label: edge.label,
+              sourceId: edge.source,
+              targetId: edge.target
             }
           );
         }
@@ -128,33 +127,45 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     const session: Session = driver.session();
     try {
       const result = await session.executeRead(async (tx) => {
-        // Load all nodes with all their properties
+        // Load all nodes, using name property for label if available
         const nodesResult = await tx.run(`
-          MATCH (n:Node)
-          RETURN properties(n) as props
+          MATCH (n)
+          RETURN 
+            id(n) as elementId,
+            properties(n) as props
         `);
 
         const nodes = nodesResult.records.map(record => {
           const props = record.get('props');
-          return props; // Return all properties directly
+          const elementId = record.get('elementId').toString();
+          return {
+            id: props.id || elementId,
+            label: props.name || elementId // Use name if available, fallback to elementId
+          };
         });
 
-        // Load all relationships with all their properties
+        // Load all relationships with their properties
         const edgesResult = await tx.run(`
-          MATCH (source:Node)-[r:CONNECTS_TO]->(target:Node)
+          MATCH (source)-[r]->(target)
           RETURN 
+            id(r) as elementId,
+            type(r) as type,
             properties(r) as props,
             source.id as sourceId,
-            target.id as targetId
+            target.id as targetId,
+            id(source) as sourceElementId,
+            id(target) as targetElementId
         `);
 
         const edges = edgesResult.records.map(record => {
           const props = record.get('props');
-          const sourceId = record.get('sourceId');
-          const targetId = record.get('targetId');
+          const elementId = record.get('elementId').toString();
+          const sourceId = record.get('sourceId') || record.get('sourceElementId').toString();
+          const targetId = record.get('targetId') || record.get('targetElementId').toString();
 
           return {
-            ...props,
+            id: props.id || elementId,
+            label: props.label || record.get('type'),
             source: sourceId,
             target: targetId
           };
