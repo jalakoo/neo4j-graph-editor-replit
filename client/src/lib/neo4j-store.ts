@@ -14,6 +14,7 @@ interface Neo4jStore {
   saveGraph: (nodes: any[], edges: any[]) => Promise<void>;
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
   updateProperty: (elementId: string, key: string, value: string, isNode: boolean) => Promise<void>;
+  refreshElement: (elementId: string, isNode: boolean) => Promise<any>;
 }
 
 // Cookie names
@@ -217,6 +218,72 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
 
         await tx.run(query, { elementId, key, value });
       });
+    } finally {
+      await session.close();
+    }
+  },
+
+  refreshElement: async (elementId: string, isNode: boolean) => {
+    const { driver } = get();
+    if (!driver) throw new Error("Not connected to database");
+
+    const session: Session = driver.session();
+    try {
+      const result = await session.executeRead(async (tx) => {
+        if (isNode) {
+          const { records } = await tx.run(`
+            MATCH (n)
+            WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
+            RETURN 
+              n.id as id,
+              n.name as name,
+              properties(n) as properties,
+              id(n) as elementId
+          `, { elementId });
+
+          if (records.length === 0) return null;
+
+          const record = records[0];
+          const id = record.get('id');
+          const name = record.get('name');
+          const properties = record.get('properties');
+          const neoId = record.get('elementId').toString();
+
+          return {
+            id: id || neoId,
+            label: name || neoId,
+            ...properties
+          };
+        } else {
+          const { records } = await tx.run(`
+            MATCH ()-[r]->()
+            WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
+            RETURN 
+              r.id as id,
+              r.label as label,
+              properties(r) as properties,
+              id(r) as elementId,
+              type(r) as type
+          `, { elementId });
+
+          if (records.length === 0) return null;
+
+          const record = records[0];
+          const id = record.get('id');
+          const label = record.get('label');
+          const properties = record.get('properties');
+          const neoId = record.get('elementId').toString();
+          const type = record.get('type');
+
+          return {
+            id: id || neoId,
+            label: label || type || 'connects to',
+            ...properties
+          };
+        }
+      });
+
+      return result;
     } finally {
       await session.close();
     }

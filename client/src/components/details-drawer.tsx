@@ -6,8 +6,8 @@ import { HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export function DetailsDrawer() {
-  const { selectedElement } = useGraphStore();
-  const { updateProperty } = useNeo4jStore();
+  const { selectedElement, setSelectedElement } = useGraphStore();
+  const { updateProperty, refreshElement } = useNeo4jStore();
   const { toast } = useToast();
 
   const isEdge = selectedElement && 'source' in selectedElement;
@@ -18,6 +18,13 @@ export function DetailsDrawer() {
 
     try {
       await updateProperty(selectedElement.id, key, value, !isEdge);
+
+      // Refresh the element data
+      const refreshedElement = await refreshElement(selectedElement.id, !isEdge);
+      if (refreshedElement) {
+        setSelectedElement(refreshedElement);
+      }
+
       toast({
         title: "Success",
         description: "Property updated successfully"
