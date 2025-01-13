@@ -58,6 +58,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         isConnected: false,
         driver: null
       });
+      throw err;
     }
   },
 

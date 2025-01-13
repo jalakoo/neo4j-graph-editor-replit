@@ -6,6 +6,7 @@ import { useNeo4jStore } from "@/lib/neo4j-store";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
+import { useGraphStore } from "@/lib/graph-store";
 
 interface Props {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export function DbConnectionDialog({ isOpen, onOpenChange }: Props) {
 
   const connect = useNeo4jStore(state => state.connect);
   const error = useNeo4jStore(state => state.error);
+  const loadFromDb = useGraphStore(state => state.loadFromDb);
   const { toast } = useToast();
 
   // Update form when store values change
@@ -59,6 +61,21 @@ export function DbConnectionDialog({ isOpen, onOpenChange }: Props) {
           title: "Connected to database",
           description: "Successfully connected to Neo4j database"
         });
+
+        // Automatically load graph data after successful connection
+        try {
+          await loadFromDb();
+          toast({
+            title: "Data loaded",
+            description: "Successfully loaded graph data from database"
+          });
+        } catch (loadError) {
+          toast({
+            title: "Warning",
+            description: "Connected to database but failed to load graph data",
+            variant: "destructive"
+          });
+        }
       }
     } catch (err) {
       toast({
