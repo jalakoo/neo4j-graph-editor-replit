@@ -18,12 +18,19 @@ export function NodeDialog() {
   const isEditing = editingElement && !('source' in editingElement);
 
   useEffect(() => {
+    // Clear form when dialog closes
+    if (!isNodeDialogOpen) {
+      setLabel("");
+      return;
+    }
+
+    // Set label when editing
     if (isEditing) {
       setLabel(editingElement.label);
     } else {
       setLabel("");
     }
-  }, [isEditing, editingElement]);
+  }, [isNodeDialogOpen, isEditing, editingElement]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +45,6 @@ export function NodeDialog() {
       });
     }
 
-    setLabel("");
     closeNodeDialog();
   };
 
