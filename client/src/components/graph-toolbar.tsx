@@ -16,68 +16,72 @@ export function GraphToolbar() {
   } = useGraphStore();
 
   return (
-    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button size="icon" onClick={openNodeDialog}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Add Node</TooltipContent>
-      </Tooltip>
+    <div className="absolute top-4 left-4 z-50 flex flex-col gap-2 bg-background/50 backdrop-blur-sm p-2 rounded-lg shadow-md">
+      <div className="flex flex-col gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="icon" onClick={openNodeDialog}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Add Node</TooltipContent>
+        </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button size="icon" onClick={openEdgeDialog}>
-            <Link2 className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Add Edge</TooltipContent>
-      </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="icon" onClick={openEdgeDialog}>
+              <Link2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Add Edge</TooltipContent>
+        </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button 
-            size="icon" 
-            variant="destructive"
-            disabled={!selectedElement}
-            onClick={deleteSelected}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Delete Selected</TooltipContent>
-      </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon" 
+              variant="destructive"
+              disabled={!selectedElement}
+              onClick={deleteSelected}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Delete Selected</TooltipContent>
+        </Tooltip>
+      </div>
 
-      <div className="h-4" />
+      <div className="h-px bg-border" />
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button 
-            size="icon" 
-            variant="outline"
-            disabled={!canUndo}
-            onClick={undo}
-          >
-            <Undo2 className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Undo</TooltipContent>
-      </Tooltip>
+      <div className="flex flex-col gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon" 
+              variant="outline"
+              disabled={!canUndo}
+              onClick={undo}
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Undo</TooltipContent>
+        </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button 
-            size="icon" 
-            variant="outline"
-            disabled={!canRedo}
-            onClick={redo}
-          >
-            <Redo2 className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Redo</TooltipContent>
-      </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon" 
+              variant="outline"
+              disabled={!canRedo}
+              onClick={redo}
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Redo</TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 }
