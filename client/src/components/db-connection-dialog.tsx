@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNeo4jStore } from "@/lib/neo4j-store";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Upload } from "lucide-react";
 
 interface Props {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function DbConnectionDialog({ isOpen, onOpenChange }: Props) {
   const [username, setUsername] = useState(neo4jStore.username);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const connect = useNeo4jStore(state => state.connect);
   const error = useNeo4jStore(state => state.error);
@@ -69,12 +71,102 @@ export function DbConnectionDialog({ isOpen, onOpenChange }: Props) {
     }
   };
 
+  const parseCredentials = (content: string) => {
+    const lines = content.split('\n');
+    let parsedUrl = '';
+    let parsedUsername = '';
+    let parsedPassword = '';
+
+    for (const line of lines) {
+      const [key, value] = line.split('=').map(part => part.trim());
+      switch (key) {
+        case 'NEO4J_URI':
+          parsedUrl = value;
+          break;
+        case 'NEO4J_USERNAME':
+          parsedUsername = value;
+          break;
+        case 'NEO4J_PASSWORD':
+          parsedPassword = value;
+          break;
+      }
+    }
+
+    if (parsedUrl && parsedUsername && parsedPassword) {
+      setUrl(parsedUrl);
+      setUsername(parsedUsername);
+      setPassword(parsedPassword);
+      toast({
+        title: "Credentials loaded",
+        description: "Successfully loaded credentials from file"
+      });
+    } else {
+      toast({
+        title: "Invalid file format",
+        description: "Could not find all required credentials in the file",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'text/plain') {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        if (content) {
+          parseCredentials(content);
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      toast({
+        title: "Invalid file type",
+        description: "Please drop a text file",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Connect to Neo4j Database</DialogTitle>
         </DialogHeader>
+
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`p-4 mb-4 border-2 border-dashed rounded-lg text-center transition-colors ${
+            isDragging 
+              ? 'border-primary bg-primary/10' 
+              : 'border-border hover:border-primary/50'
+          }`}
+        >
+          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Drop your credentials file here
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Only .txt files are accepted
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
