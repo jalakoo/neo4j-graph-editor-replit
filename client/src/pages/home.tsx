@@ -3,6 +3,7 @@ import { GraphToolbar } from "@/components/graph-toolbar";
 import { NodeDialog } from "@/components/node-dialog";
 import { EdgeDialog } from "@/components/edge-dialog";
 import { DbConnectionDialog } from "@/components/db-connection-dialog";
+import { DetailsPanel } from "@/components/details-panel";
 import { useNeo4jStore } from "@/lib/neo4j-store";
 import { Button } from "@/components/ui/button";
 import { DatabaseIcon } from "lucide-react";
@@ -31,9 +32,12 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 relative">
-        <GraphToolbar />
-        <GraphCanvas />
+      <main className="flex-1 relative flex">
+        <div className="flex-1 relative">
+          <GraphToolbar />
+          <GraphCanvas />
+        </div>
+        <DetailsPanel />
       </main>
 
       <NodeDialog />
