@@ -18,6 +18,7 @@ interface Neo4jStore {
 // Cookie names
 const URL_COOKIE = 'neo4j_url';
 const USERNAME_COOKIE = 'neo4j_username';
+const PASSWORD_COOKIE = 'neo4j_password'; // Temporary storage for auto-connection
 
 // Initialize store with saved credentials
 const savedUrl = getCookie(URL_COOKIE) || '';
@@ -95,8 +96,8 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         // Create nodes
         for (const node of nodes) {
           await tx.run(
-            'CREATE (n:Node {id: $id, label: $label})',
-            { id: node.id, label: node.label }
+            'CREATE (n:Node {id: $id, name: $name})',
+            { id: node.id, name: node.label }
           );
         }
 
@@ -131,16 +132,19 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         const nodesResult = await tx.run(`
           MATCH (n)
           RETURN 
-            id(n) as elementId,
-            properties(n) as props
+            n.id as id,
+            n.name as name,
+            id(n) as elementId
         `);
 
         const nodes = nodesResult.records.map(record => {
-          const props = record.get('props');
+          const id = record.get('id');
+          const name = record.get('name');
           const elementId = record.get('elementId').toString();
+
           return {
-            id: props.id || elementId,
-            label: props.name || elementId // Use name if available, fallback to elementId
+            id: id || elementId,
+            label: name || elementId // Use name if available, fallback to elementId
           };
         });
 
@@ -148,24 +152,25 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         const edgesResult = await tx.run(`
           MATCH (source)-[r]->(target)
           RETURN 
-            id(r) as elementId,
-            type(r) as type,
-            properties(r) as props,
+            r.id as id,
+            r.label as label,
             source.id as sourceId,
             target.id as targetId,
+            id(r) as elementId,
             id(source) as sourceElementId,
             id(target) as targetElementId
         `);
 
         const edges = edgesResult.records.map(record => {
-          const props = record.get('props');
+          const id = record.get('id');
+          const label = record.get('label');
           const elementId = record.get('elementId').toString();
           const sourceId = record.get('sourceId') || record.get('sourceElementId').toString();
           const targetId = record.get('targetId') || record.get('targetElementId').toString();
 
           return {
-            id: props.id || elementId,
-            label: props.label || record.get('type'),
+            id: id || elementId,
+            label: label || 'connects to',
             source: sourceId,
             target: targetId
           };
