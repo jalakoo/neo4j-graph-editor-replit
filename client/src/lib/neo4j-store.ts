@@ -11,7 +11,6 @@ interface Neo4jStore {
 
   connect: (url: string, username: string, password: string) => Promise<void>;
   disconnect: () => void;
-  saveGraph: (nodes: any[], edges: any[]) => Promise<void>;
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
   updateProperty: (elementId: string, key: string, value: string, isNode: boolean) => Promise<void>;
   refreshElement: (elementId: string, isNode: boolean) => Promise<any>;
@@ -20,13 +19,10 @@ interface Neo4jStore {
 // Cookie names
 const URL_COOKIE = 'neo4j_url';
 const USERNAME_COOKIE = 'neo4j_username';
-const PASSWORD_COOKIE = 'neo4j_password'; // Temporary storage for auto-connection
 
 // Initialize store with saved credentials
 const savedUrl = getCookie(URL_COOKIE) || '';
 const savedUsername = getCookie(USERNAME_COOKIE) || '';
-
-console.log('Loading saved credentials:', { savedUrl, savedUsername });
 
 export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
   url: savedUrl,
@@ -37,15 +33,23 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
 
   connect: async (url: string, username: string, password: string) => {
     try {
-      console.log('Connecting with credentials:', { url, username });
-      const driver = neo4j.driver(url, neo4j.auth.basic(username, password));
-      await driver.verifyConnectivity();
+      const driver = neo4j.driver(url, neo4j.auth.basic(username, password), {
+        maxConnectionLifetime: 3 * 60 * 60 * 1000, // 3 hours
+        maxConnectionPoolSize: 50,
+        connectionAcquisitionTimeout: 2000, // 2 seconds
+      });
 
-      // Save credentials to cookies with explicit options
+      // Verify connectivity with timeout
+      await Promise.race([
+        driver.verifyConnectivity(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 5000)
+        )
+      ]);
+
+      // Save credentials to cookies
       setCookie(URL_COOKIE, url);
       setCookie(USERNAME_COOKIE, username);
-
-      console.log('Saved credentials to cookies');
 
       set({ 
         driver,
@@ -71,8 +75,6 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       driver.close();
     }
 
-    // Clear cookies
-    console.log('Clearing cookies');
     deleteCookie(URL_COOKIE);
     deleteCookie(USERNAME_COOKIE);
 
@@ -85,52 +87,13 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     });
   },
 
-  saveGraph: async (nodes, edges) => {
-    const { driver } = get();
-    if (!driver) return;
-
-    const session: Session = driver.session();
-    try {
-      await session.executeWrite(async (tx) => {
-        // Clear existing graph
-        await tx.run('MATCH (n) DETACH DELETE n');
-
-        // Create nodes
-        for (const node of nodes) {
-          await tx.run(
-            'CREATE (n:Node {id: $id, name: $name})',
-            { id: node.id, name: node.label }
-          );
-        }
-
-        // Create relationships
-        for (const edge of edges) {
-          await tx.run(
-            `MATCH (source:Node {id: $sourceId})
-             MATCH (target:Node {id: $targetId})
-             CREATE (source)-[r:CONNECTS_TO {id: $id, label: $label}]->(target)`,
-            { 
-              id: edge.id,
-              label: edge.label,
-              sourceId: edge.source,
-              targetId: edge.target
-            }
-          );
-        }
-      });
-    } finally {
-      await session.close();
-    }
-  },
-
   loadGraph: async () => {
     const { driver } = get();
-    if (!driver) return { nodes: [], edges: [] };
+    if (!driver) throw new Error("Not connected to database");
 
     const session: Session = driver.session();
     try {
       const result = await session.executeRead(async (tx) => {
-        // Load all nodes with all their properties
         const nodesResult = await tx.run(`
           MATCH (n)
           RETURN 
@@ -148,12 +111,11 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
 
           return {
             id: id || elementId,
-            label: name || elementId,
+            label: name || id || elementId,
             ...properties
           };
         });
 
-        // Load all relationships with all their properties
         const edgesResult = await tx.run(`
           MATCH (source)-[r]->(target)
           RETURN 
@@ -191,10 +153,14 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       });
 
       return result;
+    } catch (error) {
+      console.error('Error loading graph:', error);
+      throw error;
     } finally {
       await session.close();
     }
   },
+
   updateProperty: async (elementId: string, key: string, value: string, isNode: boolean) => {
     const { driver } = get();
     if (!driver) throw new Error("Not connected to database");
@@ -216,8 +182,14 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             RETURN r
           `;
 
-        await tx.run(query, { elementId, key, value });
+        const result = await tx.run(query, { elementId, key, value });
+        if (result.records.length === 0) {
+          throw new Error(`${isNode ? 'Node' : 'Relationship'} not found`);
+        }
       });
+    } catch (error) {
+      console.error('Error updating property:', error);
+      throw error;
     } finally {
       await session.close();
     }
@@ -251,7 +223,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
 
           return {
             id: id || neoId,
-            label: name || neoId,
+            label: name || id || neoId,
             ...properties
           };
         } else {
@@ -284,6 +256,9 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       });
 
       return result;
+    } catch (error) {
+      console.error('Error refreshing element:', error);
+      throw error;
     } finally {
       await session.close();
     }

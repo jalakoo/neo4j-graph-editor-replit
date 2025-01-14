@@ -4,6 +4,7 @@ import { useNeo4jStore } from "./neo4j-store";
 interface Node {
   id: string;
   label: string;
+  [key: string]: any;
 }
 
 interface Edge {
@@ -11,6 +12,7 @@ interface Edge {
   source: string;
   target: string;
   label: string;
+  [key: string]: any;
 }
 
 interface HistoryState {
@@ -49,7 +51,6 @@ interface GraphStore {
   deleteSelected: () => void;
   undo: () => void;
   redo: () => void;
-  saveToDb: () => Promise<void>;
   loadFromDb: () => Promise<void>;
 }
 
@@ -100,12 +101,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     editingNode: null 
   }),
 
-  openEdgeDialog: () => {
-    set({ 
-      isEdgeDialogOpen: true,
-      editingEdge: null
-    });
-  },
+  openEdgeDialog: () => set({ 
+    isEdgeDialogOpen: true,
+    editingEdge: null
+  }),
 
   openEdgeEditDialog: (edge) => set({ 
     isEdgeDialogOpen: true,
@@ -243,17 +242,6 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
         canRedo: newIndex < history.length - 1
       });
     }
-  },
-
-  saveToDb: async () => {
-    const { nodes, edges } = get();
-    const { saveGraph, isConnected } = useNeo4jStore.getState();
-
-    if (!isConnected) {
-      throw new Error("Not connected to database");
-    }
-
-    await saveGraph(nodes, edges);
   },
 
   loadFromDb: async () => {
