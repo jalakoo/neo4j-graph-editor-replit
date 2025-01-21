@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,7 +27,6 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState("00:00");
   const [isUtc, setIsUtc] = useState(true);
-  const timeInputRef = useRef<HTMLInputElement>(null);
 
   // Get timezone abbreviation
   const getTimezoneAbbr = () => {
@@ -94,26 +93,6 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     setDate(undefined);
     setTime("00:00");
   };
-
-  const validateTime = (input: string) => {
-    const [hours, minutes] = input.split(':').map(Number);
-    return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
-  };
-
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = e.target.value;
-    if (validateTime(newTime)) {
-      setTime(newTime);
-    }
-  };
-
-  // Effect to configure time input for 24-hour format
-  useEffect(() => {
-    if (timeInputRef.current) {
-      timeInputRef.current.setAttribute('type', 'time');
-      timeInputRef.current.setAttribute('step', '60'); // 1 minute steps
-    }
-  }, [timeInputRef]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -201,18 +180,10 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                 <div className="space-y-2">
                   <Label>Time{isUtc ? " (UTC)" : ""}</Label>
                   <Input
-                    ref={timeInputRef}
                     type="time"
                     value={time}
-                    onChange={handleTimeChange}
-                    pattern="[0-9]{2}:[0-9]{2}"
-                    title="Enter time in 24-hour format (HH:mm)"
-                    required
-                    className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
+                    onChange={(e) => setTime(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Enter time in 24-hour format (00:00 - 23:59)
-                  </p>
                 </div>
               </div>
             ) : (
