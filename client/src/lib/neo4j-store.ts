@@ -19,6 +19,7 @@ interface Neo4jStore {
   disconnect: () => void;
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
   updateProperty: (elementId: string, key: string, value: any, isNode: boolean) => Promise<void>;
+  deleteProperty: (elementId: string, key: string, isNode: boolean) => Promise<void>;
   refreshElement: (elementId: string, isNode: boolean) => Promise<any>;
 }
 
@@ -212,9 +213,9 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           ? `
             MATCH (n)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
-            SET n[$key] = ${useRawValue ? convertedValue : 
-              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-                ? convertedValue 
+            SET n[$key] = ${useRawValue ? convertedValue :
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
+                ? convertedValue
                 : '$value'}
             RETURN n
           `
@@ -222,8 +223,8 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             MATCH ()-[r]->()
             WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
             SET r[$key] = ${useRawValue ? convertedValue :
-              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-                ? convertedValue 
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
+                ? convertedValue
                 : '$value'}
             RETURN r
           `;
@@ -232,7 +233,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           elementId,
           key,
           value: useRawValue ? null : (
-            typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+            typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
               ? parseInt(convertedValue.replace('toInteger(', '').replace(')', ''), 10)
               : convertedValue
           )
@@ -244,6 +245,44 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       });
     } catch (error) {
       console.error('Error updating property:', error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  },
+
+  deleteProperty: async (elementId: string, key: string, isNode: boolean) => {
+    const { driver } = get();
+    if (!driver) throw new Error("Not connected to database");
+
+    const session: Session = driver.session();
+    try {
+      await session.executeWrite(async (tx) => {
+        const query = isNode
+          ? `
+            MATCH (n)
+            WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
+            REMOVE n[$key]
+            RETURN n
+          `
+          : `
+            MATCH ()-[r]->()
+            WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
+            REMOVE r[$key]
+            RETURN r
+          `;
+
+        const result = await tx.run(query, {
+          elementId,
+          key
+        });
+
+        if (result.records.length === 0) {
+          throw new Error(`${isNode ? 'Node' : 'Relationship'} not found`);
+        }
+      });
+    } catch (error) {
+      console.error('Error deleting property:', error);
       throw error;
     } finally {
       await session.close();
