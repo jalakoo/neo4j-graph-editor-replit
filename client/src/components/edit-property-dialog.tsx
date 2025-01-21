@@ -30,7 +30,6 @@ interface Props {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (key: string, value: any) => void;
-  initialProperty?: { key: string; value: any } | null;
 }
 
 type ValueType = 'string' | 'integer' | 'float' | 'boolean' | 'datetime' | 'point';
@@ -48,23 +47,7 @@ function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
   return null;
 }
 
-function detectValueType(value: any): ValueType {
-  if (typeof value === 'boolean') return 'boolean';
-  if (typeof value === 'number') {
-    return Number.isInteger(value) ? 'integer' : 'float';
-  }
-  if (typeof value === 'string') {
-    if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) return 'datetime';
-    if (!isNaN(parseInt(value))) return 'integer';
-    if (!isNaN(parseFloat(value))) return 'float';
-  }
-  if (typeof value === 'object' && value !== null && 'latitude' in value && 'longitude' in value) {
-    return 'point';
-  }
-  return 'string';
-}
-
-export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty }: Props) {
+export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const [valueType, setValueType] = useState<ValueType>("string");
@@ -76,47 +59,6 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
   const [longitude, setLongitude] = useState("");
   const [height, setHeight] = useState("");
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
-
-  // Reset form when dialog opens/closes or initialProperty changes
-  useEffect(() => {
-    if (isOpen && initialProperty) {
-      setKey(initialProperty.key);
-      const type = detectValueType(initialProperty.value);
-      setValueType(type);
-
-      switch (type) {
-        case 'boolean':
-          setBoolValue(Boolean(initialProperty.value));
-          break;
-        case 'datetime':
-          const date = new Date(initialProperty.value);
-          setDate(date);
-          setTime(format(date, 'HH:mm'));
-          break;
-        case 'point':
-          const point = initialProperty.value;
-          setLatitude(point.latitude.toString());
-          setLongitude(point.longitude.toString());
-          setHeight(point.height?.toString() ?? '');
-          setMarkerPosition([point.latitude, point.longitude]);
-          break;
-        default:
-          setValue(String(initialProperty.value));
-      }
-    } else if (!isOpen) {
-      // Reset form
-      setKey("");
-      setValue("");
-      setBoolValue(false);
-      setDate(undefined);
-      setTime("00:00");
-      setLatitude("");
-      setLongitude("");
-      setHeight("");
-      setMarkerPosition(null);
-      setValueType("string");
-    }
-  }, [isOpen, initialProperty]);
 
   // Get timezone abbreviation
   const getTimezoneAbbr = () => {
@@ -179,6 +121,16 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
     }
 
     onSubmit(key.trim(), finalValue);
+    setKey("");
+    setValue("");
+    setBoolValue(false);
+    setDate(undefined);
+    setTime("00:00");
+    setLatitude("");
+    setLongitude("");
+    setHeight("");
+    setMarkerPosition(null);
+    setValueType("string");
     onOpenChange(false);
   };
 
@@ -226,7 +178,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{initialProperty ? 'Edit' : 'Add'} Property</DialogTitle>
+          <DialogTitle>Add New Property</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -238,13 +190,12 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
               onChange={(e) => setKey(e.target.value)}
               placeholder="Enter property name"
               required
-              disabled={!!initialProperty}
             />
           </div>
 
           <div className="space-y-2">
             <Label>Value Type</Label>
-            <Select value={valueType} onValueChange={handleTypeChange} disabled={!!initialProperty}>
+            <Select value={valueType} onValueChange={handleTypeChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select value type" />
               </SelectTrigger>
@@ -393,7 +344,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
               Cancel
             </Button>
             <Button type="submit">
-              {initialProperty ? 'Update' : 'Add'} Property
+              Add Property
             </Button>
           </div>
         </form>
