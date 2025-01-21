@@ -30,7 +30,6 @@ interface Props {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (key: string, value: any) => void;
-  initialProperty?: { key: string; value: any } | null;
 }
 
 type ValueType = 'string' | 'integer' | 'float' | 'boolean' | 'datetime' | 'point';
@@ -48,37 +47,7 @@ function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
   return null;
 }
 
-function detectValueType(value: any): ValueType {
-  if (value === null || value === undefined) return 'string';
-
-  // Check for Neo4j DateTime object
-  if (typeof value === 'object' && 'year' in value && 'month' in value && 'day' in value) {
-    return 'datetime';
-  }
-
-  // Check for Neo4j point format
-  if (typeof value === 'object' && 'srid' in value && 'x' in value && 'y' in value) {
-    return 'point';
-  }
-
-  // Check for our internal point format
-  if (typeof value === 'object' && 'latitude' in value && 'longitude' in value) {
-    return 'point';
-  }
-
-  if (typeof value === 'boolean') return 'boolean';
-  if (typeof value === 'number') {
-    return Number.isInteger(value) ? 'integer' : 'float';
-  }
-  if (typeof value === 'string') {
-    if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) return 'datetime';
-    if (!isNaN(parseInt(value)) && value.trim() === parseInt(value).toString()) return 'integer';
-    if (!isNaN(parseFloat(value)) && value.trim() === parseFloat(value).toString()) return 'float';
-  }
-  return 'string';
-}
-
-export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty }: Props) {
+export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const [valueType, setValueType] = useState<ValueType>("string");
@@ -90,69 +59,6 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
   const [longitude, setLongitude] = useState("");
   const [height, setHeight] = useState("");
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
-
-  // Reset form when dialog opens/closes or initialProperty changes
-  useEffect(() => {
-    if (isOpen && initialProperty) {
-      setKey(initialProperty.key);
-      const type = detectValueType(initialProperty.value);
-      setValueType(type);
-
-      switch (type) {
-        case 'boolean':
-          setBoolValue(Boolean(initialProperty.value));
-          break;
-        case 'datetime':
-          let datetime;
-          if (typeof initialProperty.value === 'object' && 'year' in initialProperty.value) {
-            // Handle Neo4j DateTime object
-            const dt = initialProperty.value;
-            // Convert BigInt to Number for JavaScript Date
-            const nanosToMillis = Number(dt.nanosecond) / 1_000_000;
-            datetime = new Date(Date.UTC(
-              Number(dt.year),
-              Number(dt.month) - 1, // JavaScript months are 0-based
-              Number(dt.day),
-              Number(dt.hour),
-              Number(dt.minute),
-              Number(dt.second),
-              nanosToMillis
-            ));
-          } else {
-            datetime = new Date(initialProperty.value);
-          }
-          setDate(datetime);
-          setTime(format(datetime, 'HH:mm'));
-          break;
-        case 'point':
-          const pointValue = initialProperty.value;
-          // Handle both Neo4j point format and our internal format
-          const lat = 'latitude' in pointValue ? pointValue.latitude : pointValue.y;
-          const lng = 'longitude' in pointValue ? pointValue.longitude : pointValue.x;
-          const h = 'height' in pointValue ? pointValue.height : pointValue.z;
-
-          setLatitude(lat.toString());
-          setLongitude(lng.toString());
-          setHeight(h?.toString() ?? '');
-          setMarkerPosition([lat, lng]);
-          break;
-        default:
-          setValue(String(initialProperty.value));
-      }
-    } else if (!isOpen) {
-      // Reset form
-      setKey("");
-      setValue("");
-      setBoolValue(false);
-      setDate(undefined);
-      setTime("00:00");
-      setLatitude("");
-      setLongitude("");
-      setHeight("");
-      setMarkerPosition(null);
-      setValueType("string");
-    }
-  }, [isOpen, initialProperty]);
 
   // Get timezone abbreviation
   const getTimezoneAbbr = () => {
@@ -181,16 +87,21 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
         if (!date) return;
         const [hours, minutes] = time.split(':').map(Number);
         const datetime = new Date(date);
+        datetime.setHours(hours, minutes);
 
-        if (isUtc) {
-          // If UTC is selected, use UTC methods to set time
-          datetime.setUTCHours(hours, minutes, 0, 0);
+        // If in local mode, convert to UTC before storing
+        if (!isUtc) {
+          const utcMillis = Date.UTC(
+            datetime.getFullYear(),
+            datetime.getMonth(),
+            datetime.getDate(),
+            datetime.getHours(),
+            datetime.getMinutes()
+          );
+          finalValue = new Date(utcMillis).toISOString();
         } else {
-          // If local time is selected, first set local time then convert to UTC
-          datetime.setHours(hours, minutes, 0, 0);
+          finalValue = datetime.toISOString();
         }
-
-        finalValue = datetime.toISOString();
         break;
       case 'point':
         if (!latitude || !longitude) return;
@@ -210,6 +121,16 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
     }
 
     onSubmit(key.trim(), finalValue);
+    setKey("");
+    setValue("");
+    setBoolValue(false);
+    setDate(undefined);
+    setTime("00:00");
+    setLatitude("");
+    setLongitude("");
+    setHeight("");
+    setMarkerPosition(null);
+    setValueType("string");
     onOpenChange(false);
   };
 
@@ -257,7 +178,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{initialProperty ? 'Edit' : 'Add'} Property</DialogTitle>
+          <DialogTitle>Add New Property</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -269,13 +190,12 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
               onChange={(e) => setKey(e.target.value)}
               placeholder="Enter property name"
               required
-              disabled={!!initialProperty}
             />
           </div>
 
           <div className="space-y-2">
             <Label>Value Type</Label>
-            <Select value={valueType} onValueChange={handleTypeChange} disabled={!!initialProperty}>
+            <Select value={valueType} onValueChange={handleTypeChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select value type" />
               </SelectTrigger>
@@ -424,7 +344,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
               Cancel
             </Button>
             <Button type="submit">
-              {initialProperty ? 'Update' : 'Add'} Property
+              Add Property
             </Button>
           </div>
         </form>
