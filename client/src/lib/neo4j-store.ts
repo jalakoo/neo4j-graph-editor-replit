@@ -170,6 +170,8 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       await session.executeWrite(async (tx) => {
         // Convert the value based on its type
         let convertedValue = value;
+        let useRawValue = false;
+
         if (typeof value === 'string') {
           // Try to parse numbers and booleans from strings
           if (value.toLowerCase() === 'true') convertedValue = true;
@@ -181,6 +183,10 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             } else {
               convertedValue = Number(value);
             }
+          } else if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+            // ISO 8601 datetime string
+            convertedValue = `datetime('${value}')`;
+            useRawValue = true;
           }
         } else if (Number.isInteger(value)) {
           // If the value is already an integer
@@ -191,26 +197,30 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           ? `
             MATCH (n)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
-            SET n[$key] = ${typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-              ? convertedValue 
-              : '$value'}
+            SET n[$key] = ${useRawValue ? convertedValue : 
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+                ? convertedValue 
+                : '$value'}
             RETURN n
           `
           : `
             MATCH ()-[r]->()
             WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
-            SET r[$key] = ${typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-              ? convertedValue 
-              : '$value'}
+            SET r[$key] = ${useRawValue ? convertedValue :
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+                ? convertedValue 
+                : '$value'}
             RETURN r
           `;
 
         const result = await tx.run(query, {
           elementId,
           key,
-          value: typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-            ? parseInt(convertedValue.replace('toInteger(', '').replace(')', ''), 10)
-            : convertedValue
+          value: useRawValue ? null : (
+            typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+              ? parseInt(convertedValue.replace('toInteger(', '').replace(')', ''), 10)
+              : convertedValue
+          )
         });
 
         if (result.records.length === 0) {
