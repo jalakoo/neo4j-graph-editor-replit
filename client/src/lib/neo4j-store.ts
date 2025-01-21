@@ -12,7 +12,7 @@ interface Neo4jStore {
   connect: (url: string, username: string, password: string) => Promise<void>;
   disconnect: () => void;
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
-  updateProperty: (elementId: string, key: string, value: string, isNode: boolean) => Promise<void>;
+  updateProperty: (elementId: string, key: string, value: any, isNode: boolean) => Promise<void>;
   refreshElement: (elementId: string, isNode: boolean) => Promise<any>;
 }
 
@@ -42,7 +42,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       // Verify connectivity with timeout
       await Promise.race([
         driver.verifyConnectivity(),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Connection timeout')), 5000)
         )
       ]);
@@ -51,7 +51,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       setCookie(URL_COOKIE, url);
       setCookie(USERNAME_COOKIE, username);
 
-      set({ 
+      set({
         driver,
         url,
         username,
@@ -60,7 +60,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       });
     } catch (err) {
       console.error('Connection error:', err);
-      set({ 
+      set({
         error: err instanceof Error ? err.message : 'Failed to connect to database',
         isConnected: false,
         driver: null
@@ -161,13 +161,22 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     }
   },
 
-  updateProperty: async (elementId: string, key: string, value: string, isNode: boolean) => {
+  updateProperty: async (elementId: string, key: string, value: any, isNode: boolean) => {
     const { driver } = get();
     if (!driver) throw new Error("Not connected to database");
 
     const session: Session = driver.session();
     try {
       await session.executeWrite(async (tx) => {
+        // Convert the value based on its type
+        let convertedValue = value;
+        if (typeof value === 'string') {
+          // Try to parse numbers and booleans from strings
+          if (value.toLowerCase() === 'true') convertedValue = true;
+          else if (value.toLowerCase() === 'false') convertedValue = false;
+          else if (!isNaN(Number(value))) convertedValue = Number(value);
+        }
+
         const query = isNode
           ? `
             MATCH (n)
@@ -182,7 +191,12 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             RETURN r
           `;
 
-        const result = await tx.run(query, { elementId, key, value });
+        const result = await tx.run(query, {
+          elementId,
+          key,
+          value: convertedValue
+        });
+
         if (result.records.length === 0) {
           throw new Error(`${isNode ? 'Node' : 'Relationship'} not found`);
         }

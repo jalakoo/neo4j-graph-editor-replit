@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 interface Props {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (key: string, value: string) => void;
+  onSubmit: (key: string, value: any) => void;
 }
 
 type ValueType = 'string' | 'number' | 'boolean';
@@ -24,14 +24,14 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     e.preventDefault();
     if (!key.trim()) return;
 
-    let finalValue: string;
+    let finalValue: any;
     switch (valueType) {
       case 'number':
         if (!value.trim() || isNaN(Number(value))) return;
-        finalValue = value;
+        finalValue = Number(value);
         break;
       case 'boolean':
-        finalValue = String(boolValue);
+        finalValue = boolValue;
         break;
       default:
         if (!value.trim()) return;
@@ -44,6 +44,12 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     setBoolValue(false);
     setValueType("string");
     onOpenChange(false);
+  };
+
+  const handleTypeChange = (type: ValueType) => {
+    setValueType(type);
+    setValue(""); // Clear value when type changes
+    setBoolValue(false);
   };
 
   return (
@@ -67,7 +73,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
 
           <div className="space-y-2">
             <Label>Value Type</Label>
-            <Select value={valueType} onValueChange={(value: ValueType) => setValueType(value)}>
+            <Select value={valueType} onValueChange={handleTypeChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select value type" />
               </SelectTrigger>

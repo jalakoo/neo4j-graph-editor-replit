@@ -42,7 +42,7 @@ export function DetailsDrawer() {
     }
   };
 
-  const handleAddProperty = async (key: string, value: string) => {
+  const handleAddProperty = async (key: string, value: any) => {
     if (!selectedElement) return;
 
     try {
