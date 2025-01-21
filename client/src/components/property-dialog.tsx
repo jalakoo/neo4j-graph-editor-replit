@@ -98,14 +98,20 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
       const updatedDate = new Date(date);
 
       if (isUtc) {
-        // Show the UTC time directly
-        setTime(format(updatedDate, 'HH:mm', { timeZone: 'UTC' }));
+        // Convert local time to UTC display
+        const localHours = updatedDate.getHours();
+        const localMinutes = updatedDate.getMinutes();
+        updatedDate.setUTCHours(localHours, localMinutes);
       } else {
-        // Show the time in local timezone
-        setTime(format(updatedDate, 'HH:mm'));
+        // Convert UTC time to local display
+        const utcHours = updatedDate.getUTCHours();
+        const utcMinutes = updatedDate.getUTCMinutes();
+        updatedDate.setHours(utcHours, utcMinutes);
       }
+
+      setTime(format(updatedDate, 'HH:mm'));
     }
-  }, [isUtc, date]);
+  }, [isUtc, date, time]);
 
   // Reset form when dialog opens/closes or initialProperty changes
   useEffect(() => {
@@ -123,7 +129,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
           if (typeof initialProperty.value === 'object' && 'year' in initialProperty.value) {
             // Handle Neo4j DateTime object
             const dt = initialProperty.value;
-            // Convert BigInt to Number for JavaScript Date and ensure UTC time
+            // Convert BigInt to Number for JavaScript Date
             const nanosToMillis = Number(dt.nanosecond) / 1_000_000;
             datetime = new Date(Date.UTC(
               Number(dt.year),
@@ -141,9 +147,10 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
 
           // Set initial time based on UTC mode
           if (isUtc) {
-            setTime(format(datetime, 'HH:mm', { timeZone: 'UTC' }));
-          } else {
             setTime(format(datetime, 'HH:mm'));
+          } else {
+            const localDate = new Date(datetime);
+            setTime(format(localDate, 'HH:mm'));
           }
           break;
         case 'point':
@@ -182,7 +189,6 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
     return new Date().toLocaleTimeString('en-us',{timeZoneName:'short'}).split(' ')[2];
   };
 
-  // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!key.trim()) return;
@@ -210,10 +216,9 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
           datetime.setUTCHours(hours, minutes, 0, 0);
         } else {
           // If local time is selected, convert local time to UTC
-          const offset = datetime.getTimezoneOffset();
-          datetime.setHours(hours, minutes, 0, 0);
-          // Adjust for timezone offset to get correct UTC time
-          datetime.setMinutes(datetime.getMinutes() - offset);
+          const localDate = new Date(datetime);
+          localDate.setHours(hours, minutes, 0, 0);
+          datetime.setUTCHours(localDate.getHours(), localDate.getMinutes(), 0, 0);
         }
 
         finalValue = datetime.toISOString();
