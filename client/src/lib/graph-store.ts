@@ -86,33 +86,33 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   clearSelectedNodes: () => set({ selectedNodes: [] }),
 
-  openNodeDialog: () => set({ 
+  openNodeDialog: () => set({
     isNodeDialogOpen: true,
     editingNode: null
   }),
 
-  openNodeEditDialog: (node) => set({ 
+  openNodeEditDialog: (node) => set({
     isNodeDialogOpen: true,
-    editingNode: node 
+    editingNode: node
   }),
 
-  closeNodeDialog: () => set({ 
+  closeNodeDialog: () => set({
     isNodeDialogOpen: false,
-    editingNode: null 
+    editingNode: null
   }),
 
-  openEdgeDialog: () => set({ 
+  openEdgeDialog: () => set({
     isEdgeDialogOpen: true,
     editingEdge: null
   }),
 
-  openEdgeEditDialog: (edge) => set({ 
+  openEdgeEditDialog: (edge) => set({
     isEdgeDialogOpen: true,
     editingEdge: edge,
     selectedNodes: []
   }),
 
-  closeEdgeDialog: () => set({ 
+  closeEdgeDialog: () => set({
     isEdgeDialogOpen: false,
     editingEdge: null,
     selectedNodes: []
@@ -120,11 +120,19 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   addNode: (node) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
+    const { createNode, isConnected } = useNeo4jStore.getState();
     const newHistory = history.slice(0, currentHistoryIndex + 1);
     const newState = {
       nodes: [...nodes, node],
       edges
     };
+
+    // If connected to Neo4j, save the node
+    if (isConnected) {
+      createNode(node).catch(error => {
+        console.error('Failed to save node to Neo4j:', error);
+      });
+    }
 
     set({
       nodes: newState.nodes,
@@ -138,7 +146,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   updateNode: (id, label) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
     const newHistory = history.slice(0, currentHistoryIndex + 1);
-    const newNodes = nodes.map(node => 
+    const newNodes = nodes.map(node =>
       node.id === id ? { ...node, label } : node
     );
     const newState = { nodes: newNodes, edges };
@@ -172,7 +180,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   updateEdge: (id, label) => {
     const { nodes, edges, currentHistoryIndex, history } = get();
     const newHistory = history.slice(0, currentHistoryIndex + 1);
-    const newEdges = edges.map(edge => 
+    const newEdges = edges.map(edge =>
       edge.id === id ? { ...edge, label } : edge
     );
     const newState = { nodes, edges: newEdges };

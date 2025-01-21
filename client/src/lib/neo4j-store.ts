@@ -20,6 +20,8 @@ interface Neo4jStore {
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
   updateProperty: (elementId: string, key: string, value: any, isNode: boolean) => Promise<void>;
   refreshElement: (elementId: string, isNode: boolean) => Promise<any>;
+  createNode: (node: { id: string; label: string; [key: string]: any }) => Promise<void>;
+  createEdge: (edge: { id: string; source: string; target: string; label: string; [key: string]: any }) => Promise<void>;
 }
 
 // Cookie names
@@ -93,6 +95,76 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     });
   },
 
+  createNode: async (node) => {
+    const { driver } = get();
+    if (!driver) throw new Error("Not connected to database");
+
+    const session: Session = driver.session();
+    try {
+      await session.executeWrite(async (tx) => {
+        // Convert properties to Neo4j format
+        const properties = { ...node };
+        delete properties.id;
+        delete properties.label;
+
+        await tx.run(`
+          CREATE (n:Node)
+          SET n = $properties
+          SET n.id = $id
+          SET n.name = $label
+          RETURN n
+        `, {
+          id: node.id,
+          label: node.label,
+          properties
+        });
+      });
+    } catch (error) {
+      console.error('Error creating node:', error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  },
+
+  createEdge: async (edge) => {
+    const { driver } = get();
+    if (!driver) throw new Error("Not connected to database");
+
+    const session: Session = driver.session();
+    try {
+      await session.executeWrite(async (tx) => {
+        // Convert properties to Neo4j format
+        const properties = { ...edge };
+        delete properties.id;
+        delete properties.label;
+        delete properties.source;
+        delete properties.target;
+
+        await tx.run(`
+          MATCH (source:Node {id: $sourceId})
+          MATCH (target:Node {id: $targetId})
+          CREATE (source)-[r:RELATES_TO]->(target)
+          SET r = $properties
+          SET r.id = $id
+          SET r.label = $label
+          RETURN r
+        `, {
+          sourceId: edge.source,
+          targetId: edge.target,
+          id: edge.id,
+          label: edge.label,
+          properties
+        });
+      });
+    } catch (error) {
+      console.error('Error creating edge:', error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  },
+
   loadGraph: async () => {
     const { driver } = get();
     if (!driver) throw new Error("Not connected to database");
@@ -101,7 +173,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     try {
       const result = await session.executeRead(async (tx) => {
         const nodesResult = await tx.run(`
-          MATCH (n)
+          MATCH (n:Node)
           RETURN 
             n.id as id,
             n.name as name,
@@ -123,7 +195,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         });
 
         const edgesResult = await tx.run(`
-          MATCH (source)-[r]->(target)
+          MATCH (source:Node)-[r]->(target:Node)
           RETURN 
             r.id as id,
             r.label as label,
@@ -210,7 +282,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
 
         const query = isNode
           ? `
-            MATCH (n)
+            MATCH (n:Node)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
             SET n[$key] = ${useRawValue ? convertedValue : 
               typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
@@ -259,7 +331,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       const result = await session.executeRead(async (tx) => {
         if (isNode) {
           const { records } = await tx.run(`
-            MATCH (n)
+            MATCH (n:Node)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
             RETURN 
               n.id as id,
