@@ -174,27 +174,43 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           // Try to parse numbers and booleans from strings
           if (value.toLowerCase() === 'true') convertedValue = true;
           else if (value.toLowerCase() === 'false') convertedValue = false;
-          else if (!isNaN(Number(value))) convertedValue = Number(value);
+          else if (!isNaN(Number(value))) {
+            // If it's a whole number, treat as integer
+            if (Number.isInteger(Number(value))) {
+              convertedValue = `toInteger(${Number(value)})`;
+            } else {
+              convertedValue = Number(value);
+            }
+          }
+        } else if (Number.isInteger(value)) {
+          // If the value is already an integer
+          convertedValue = `toInteger(${value})`;
         }
 
         const query = isNode
           ? `
             MATCH (n)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
-            SET n[$key] = $value
+            SET n[$key] = ${typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+              ? convertedValue 
+              : '$value'}
             RETURN n
           `
           : `
             MATCH ()-[r]->()
             WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
-            SET r[$key] = $value
+            SET r[$key] = ${typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+              ? convertedValue 
+              : '$value'}
             RETURN r
           `;
 
         const result = await tx.run(query, {
           elementId,
           key,
-          value: convertedValue
+          value: typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+            ? parseInt(convertedValue.replace('toInteger(', '').replace(')', ''), 10)
+            : convertedValue
         });
 
         if (result.records.length === 0) {
