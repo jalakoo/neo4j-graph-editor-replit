@@ -12,7 +12,7 @@ interface Props {
   onSubmit: (key: string, value: any) => void;
 }
 
-type ValueType = 'string' | 'number' | 'boolean';
+type ValueType = 'string' | 'integer' | 'float' | 'boolean';
 
 export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [key, setKey] = useState("");
@@ -26,9 +26,13 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
 
     let finalValue: any;
     switch (valueType) {
-      case 'number':
+      case 'integer':
         if (!value.trim() || isNaN(Number(value))) return;
-        finalValue = Number(value);
+        finalValue = parseInt(value, 10);
+        break;
+      case 'float':
+        if (!value.trim() || isNaN(Number(value))) return;
+        finalValue = parseFloat(value);
         break;
       case 'boolean':
         finalValue = boolValue;
@@ -79,7 +83,8 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="string">Text</SelectItem>
-                <SelectItem value="number">Number</SelectItem>
+                <SelectItem value="integer">Integer</SelectItem>
+                <SelectItem value="float">Float</SelectItem>
                 <SelectItem value="boolean">True/False</SelectItem>
               </SelectContent>
             </Select>
@@ -103,7 +108,8 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   placeholder={`Enter ${valueType} value`}
-                  type={valueType === 'number' ? 'number' : 'text'}
+                  type={valueType === 'integer' || valueType === 'float' ? 'number' : 'text'}
+                  step={valueType === 'float' ? '0.01' : '1'}
                   required
                 />
               </>
