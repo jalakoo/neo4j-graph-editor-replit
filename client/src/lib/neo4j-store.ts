@@ -21,6 +21,8 @@ interface Neo4jStore {
   updateProperty: (elementId: string, key: string, value: any, isNode: boolean) => Promise<void>;
   deleteProperty: (elementId: string, key: string, isNode: boolean) => Promise<void>;
   refreshElement: (elementId: string, isNode: boolean) => Promise<any>;
+  createNode: (node: { id: string; label: string; [key: string]: any }) => Promise<void>;
+  createEdge: (edge: { id: string; source: string; target: string; label: string; [key: string]: any }) => Promise<void>;
 }
 
 // Cookie names
@@ -352,6 +354,75 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       return result;
     } catch (error) {
       console.error('Error refreshing element:', error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  },
+  createNode: async (node) => {
+    const { driver } = get();
+    if (!driver) throw new Error("Not connected to database");
+
+    const session: Session = driver.session();
+    try {
+      await session.executeWrite(async (tx) => {
+        const query = `
+          CREATE (n:Node)
+          SET n = $properties
+          RETURN n
+        `;
+
+        const result = await tx.run(query, {
+          properties: {
+            id: node.id,
+            name: node.label,
+            ...node
+          }
+        });
+
+        if (result.records.length === 0) {
+          throw new Error('Failed to create node');
+        }
+      });
+    } catch (error) {
+      console.error('Error creating node:', error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  },
+
+  createEdge: async (edge) => {
+    const { driver } = get();
+    if (!driver) throw new Error("Not connected to database");
+
+    const session: Session = driver.session();
+    try {
+      await session.executeWrite(async (tx) => {
+        const query = `
+          MATCH (source:Node {id: $sourceId})
+          MATCH (target:Node {id: $targetId})
+          CREATE (source)-[r:CONNECTS_TO]->(target)
+          SET r = $properties
+          RETURN r
+        `;
+
+        const result = await tx.run(query, {
+          sourceId: edge.source,
+          targetId: edge.target,
+          properties: {
+            id: edge.id,
+            label: edge.label,
+            ...edge
+          }
+        });
+
+        if (result.records.length === 0) {
+          throw new Error('Failed to create edge');
+        }
+      });
+    } catch (error) {
+      console.error('Error creating edge:', error);
       throw error;
     } finally {
       await session.close();
