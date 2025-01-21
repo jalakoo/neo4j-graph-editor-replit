@@ -51,6 +51,11 @@ function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
 function detectValueType(value: any): ValueType {
   if (value === null || value === undefined) return 'string';
 
+  // Check for Neo4j DateTime object
+  if (typeof value === 'object' && 'year' in value && 'month' in value && 'day' in value) {
+    return 'datetime';
+  }
+
   // Check for Neo4j point format
   if (typeof value === 'object' && 'srid' in value && 'x' in value && 'y' in value) {
     return 'point';
@@ -98,9 +103,24 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
           setBoolValue(Boolean(initialProperty.value));
           break;
         case 'datetime':
-          const date = new Date(initialProperty.value);
-          setDate(date);
-          setTime(format(date, 'HH:mm'));
+          let datetime;
+          if (typeof initialProperty.value === 'object' && 'year' in initialProperty.value) {
+            // Handle Neo4j DateTime object
+            const dt = initialProperty.value;
+            datetime = new Date(
+              dt.year,
+              dt.month - 1, // JavaScript months are 0-based
+              dt.day,
+              dt.hour,
+              dt.minute,
+              dt.second,
+              dt.nanosecond / 1000000 // Convert nanoseconds to milliseconds
+            );
+          } else {
+            datetime = new Date(initialProperty.value);
+          }
+          setDate(datetime);
+          setTime(format(datetime, 'HH:mm'));
           break;
         case 'point':
           const pointValue = initialProperty.value;
