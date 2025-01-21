@@ -172,28 +172,32 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     const session: Session = driver.session();
     try {
       const result = await session.executeRead(async (tx) => {
+        console.log('Loading nodes from Neo4j...');
         const nodesResult = await tx.run(`
           MATCH (n:Node)
           RETURN 
             n.id as id,
-            n.name as name,
+            n.name as label,
             properties(n) as properties,
             id(n) as elementId
         `);
 
         const nodes = nodesResult.records.map(record => {
           const id = record.get('id');
-          const name = record.get('name');
+          const label = record.get('label');
           const properties = record.get('properties');
           const elementId = record.get('elementId').toString();
 
-          return {
+          const node = {
             id: id || elementId,
-            label: name || id || elementId,
+            label: label || id || elementId,
             ...properties
           };
+          console.log('Loaded node:', node);
+          return node;
         });
 
+        console.log('Loading edges from Neo4j...');
         const edgesResult = await tx.run(`
           MATCH (source:Node)-[r]->(target:Node)
           RETURN 
@@ -217,7 +221,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           const targetId = record.get('targetId') || record.get('targetElementId').toString();
           const type = record.get('type');
 
-          return {
+          const edge = {
             id: id || elementId,
             label: label || type || 'connects to',
             source: sourceId,
@@ -225,8 +229,11 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             type,
             ...properties
           };
+          console.log('Loaded edge:', edge);
+          return edge;
         });
 
+        console.log('Total nodes:', nodes.length, 'Total edges:', edges.length);
         return { nodes, edges };
       });
 
@@ -284,9 +291,9 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           ? `
             MATCH (n:Node)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
-            SET n[$key] = ${useRawValue ? convertedValue : 
-              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-                ? convertedValue 
+            SET n[$key] = ${useRawValue ? convertedValue :
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
+                ? convertedValue
                 : '$value'}
             RETURN n
           `
@@ -294,8 +301,8 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             MATCH ()-[r]->()
             WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
             SET r[$key] = ${useRawValue ? convertedValue :
-              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-                ? convertedValue 
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
+                ? convertedValue
                 : '$value'}
             RETURN r
           `;
@@ -304,7 +311,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           elementId,
           key,
           value: useRawValue ? null : (
-            typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+            typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
               ? parseInt(convertedValue.replace('toInteger(', '').replace(')', ''), 10)
               : convertedValue
           )
