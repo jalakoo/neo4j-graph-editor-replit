@@ -109,7 +109,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
             const dt = initialProperty.value;
             // Convert BigInt to Number for JavaScript Date
             const nanosToMillis = Number(dt.nanosecond) / 1_000_000;
-            datetime = new Date(
+            datetime = new Date(Date.UTC(
               Number(dt.year),
               Number(dt.month) - 1, // JavaScript months are 0-based
               Number(dt.day),
@@ -117,7 +117,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
               Number(dt.minute),
               Number(dt.second),
               nanosToMillis
-            );
+            ));
           } else {
             datetime = new Date(initialProperty.value);
           }
@@ -181,21 +181,16 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
         if (!date) return;
         const [hours, minutes] = time.split(':').map(Number);
         const datetime = new Date(date);
-        datetime.setHours(hours, minutes);
 
-        // If in local mode, convert to UTC before storing
-        if (!isUtc) {
-          const utcMillis = Date.UTC(
-            datetime.getFullYear(),
-            datetime.getMonth(),
-            datetime.getDate(),
-            datetime.getHours(),
-            datetime.getMinutes()
-          );
-          finalValue = new Date(utcMillis).toISOString();
+        if (isUtc) {
+          // If UTC is selected, use UTC methods to set time
+          datetime.setUTCHours(hours, minutes, 0, 0);
         } else {
-          finalValue = datetime.toISOString();
+          // If local time is selected, first set local time then convert to UTC
+          datetime.setHours(hours, minutes, 0, 0);
         }
+
+        finalValue = datetime.toISOString();
         break;
       case 'point':
         if (!latitude || !longitude) return;
