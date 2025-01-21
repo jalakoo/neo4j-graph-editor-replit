@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useGraphStore } from "@/lib/graph-store";
 import { useState, useEffect, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
@@ -89,45 +90,47 @@ export function PropertyDialog({
 
   // Initialize form when dialog opens
   useEffect(() => {
-    if (isOpen && editMode && initialValue !== undefined) {
-      const type = detectValueType(initialValue);
-      setValueType(type);
-      setKey(initialKey);
+    if (isOpen) {
+      if (editMode && initialValue !== undefined) {
+        const type = detectValueType(initialValue);
+        setValueType(type);
+        setKey(initialKey);
 
-      switch (type) {
-        case 'boolean':
-          setBoolValue(Boolean(initialValue));
-          break;
-        case 'datetime':
-          const date = new Date(initialValue);
-          setDate(date);
-          setTime(format(date, 'HH:mm'));
-          break;
-        case 'point':
-          if (typeof initialValue === 'object' && 'latitude' in initialValue && 'longitude' in initialValue) {
-            setLatitude(String(initialValue.latitude));
-            setLongitude(String(initialValue.longitude));
-            if ('height' in initialValue && initialValue.height !== undefined) {
-              setHeight(String(initialValue.height));
+        switch (type) {
+          case 'boolean':
+            setBoolValue(Boolean(initialValue));
+            break;
+          case 'datetime':
+            const date = new Date(initialValue);
+            setDate(date);
+            setTime(format(date, 'HH:mm'));
+            break;
+          case 'point':
+            if (typeof initialValue === 'object' && 'latitude' in initialValue && 'longitude' in initialValue) {
+              setLatitude(String(initialValue.latitude));
+              setLongitude(String(initialValue.longitude));
+              if ('height' in initialValue && initialValue.height !== undefined) {
+                setHeight(String(initialValue.height));
+              }
+              setMarkerPosition([initialValue.latitude, initialValue.longitude]);
             }
-            setMarkerPosition([initialValue.latitude, initialValue.longitude]);
-          }
-          break;
-        default:
-          setValue(String(initialValue));
+            break;
+          default:
+            setValue(String(initialValue));
+        }
+      } else {
+        // Reset form for new property
+        setKey("");
+        setValue("");
+        setBoolValue(false);
+        setDate(undefined);
+        setTime("00:00");
+        setLatitude("");
+        setLongitude("");
+        setHeight("");
+        setMarkerPosition(null);
+        setValueType("string");
       }
-    } else if (!editMode) {
-      // Reset form for new property
-      setKey("");
-      setValue("");
-      setBoolValue(false);
-      setDate(undefined);
-      setTime("00:00");
-      setLatitude("");
-      setLongitude("");
-      setHeight("");
-      setMarkerPosition(null);
-      setValueType("string");
     }
   }, [isOpen, editMode, initialValue, initialKey]);
 
@@ -223,6 +226,144 @@ export function PropertyDialog({
     }
   };
 
+  // Render the appropriate input interface based on value type
+  const renderValueInput = () => {
+    switch (valueType) {
+      case 'boolean':
+        return (
+          <div className="flex items-center justify-between">
+            <Label htmlFor="value">Value</Label>
+            <Switch
+              id="value"
+              checked={boolValue}
+              onCheckedChange={setBoolValue}
+            />
+          </div>
+        );
+
+      case 'datetime':
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <Label>Time Format</Label>
+              <div className="flex items-center space-x-2">
+                <Label>Local {!isUtc && `(${getTimezoneAbbr()})`}</Label>
+                <Switch
+                  checked={isUtc}
+                  onCheckedChange={setIsUtc}
+                />
+                <Label>UTC</Label>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Time{isUtc ? " (UTC)" : ""}</Label>
+              <Input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+            </div>
+          </div>
+        );
+
+      case 'point':
+        return (
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="latitude">Latitude</Label>
+                <Input
+                  id="latitude"
+                  value={latitude}
+                  onChange={(e) => handleCoordinateInput(e.target.value, setLatitude, true)}
+                  placeholder="-90 to 90"
+                  required
+                />
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="longitude">Longitude</Label>
+                <Input
+                  id="longitude"
+                  value={longitude}
+                  onChange={(e) => handleCoordinateInput(e.target.value, setLongitude)}
+                  placeholder="-180 to 180"
+                  required
+                />
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="height">Height (m)</Label>
+                <Input
+                  id="height"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  placeholder="Optional"
+                  type="number"
+                  step="0.1"
+                />
+              </div>
+            </div>
+            <div className="h-[300px] w-full rounded-md border">
+              <MapContainer
+                center={markerPosition || [0, 0]}
+                zoom={2}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                <MapClickHandler onLocationSelect={handleLocationSelect} />
+                {markerPosition && (
+                  <Marker position={markerPosition} icon={customIcon} />
+                )}
+              </MapContainer>
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <>
+            <Label htmlFor="value">Value</Label>
+            <Input
+              id="value"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={`Enter ${valueType} value`}
+              type={valueType === 'integer' || valueType === 'float' ? 'number' : 'text'}
+              step={valueType === 'float' ? '0.01' : '1'}
+              required
+            />
+          </>
+        );
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -263,141 +404,14 @@ export function PropertyDialog({
           )}
 
           <div className="space-y-2">
-            {valueType === 'boolean' ? (
-              <div className="flex items-center justify-between">
-                <Label htmlFor="value">Value</Label>
-                <Switch
-                  id="value"
-                  checked={boolValue}
-                  onCheckedChange={setBoolValue}
-                />
-              </div>
-            ) : valueType === 'datetime' ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Time Format</Label>
-                  <div className="flex items-center space-x-2">
-                    <Label>Local {!isUtc && `(${getTimezoneAbbr()})`}</Label>
-                    <Switch
-                      checked={isUtc}
-                      onCheckedChange={setIsUtc}
-                    />
-                    <Label>UTC</Label>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="space-y-2">
-                  <Label>Time{isUtc ? " (UTC)" : ""}</Label>
-                  <Input
-                    type="time"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                  />
-                </div>
-              </div>
-            ) : valueType === 'point' ? (
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="latitude">Latitude</Label>
-                    <Input
-                      id="latitude"
-                      value={latitude}
-                      onChange={(e) => handleCoordinateInput(e.target.value, setLatitude, true)}
-                      placeholder="-90 to 90"
-                      required
-                    />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="longitude">Longitude</Label>
-                    <Input
-                      id="longitude"
-                      value={longitude}
-                      onChange={(e) => handleCoordinateInput(e.target.value, setLongitude)}
-                      placeholder="-180 to 180"
-                      required
-                    />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="height">Height (m)</Label>
-                    <Input
-                      id="height"
-                      value={height}
-                      onChange={(e) => setHeight(e.target.value)}
-                      placeholder="Optional"
-                      type="number"
-                      step="0.1"
-                    />
-                  </div>
-                </div>
-                <div className="h-[300px] w-full rounded-md border">
-                  <MapContainer
-                    center={markerPosition || [0, 0]}
-                    zoom={2}
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    />
-                    <MapClickHandler onLocationSelect={handleLocationSelect} />
-                    {markerPosition && (
-                      <Marker position={markerPosition} icon={customIcon} />
-                    )}
-                  </MapContainer>
-                </div>
-              </div>
-            ) : (
-              <>
-                <Label htmlFor="value">Value</Label>
-                <Input
-                  id="value"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder={`Enter ${valueType} value`}
-                  type={valueType === 'integer' || valueType === 'float' ? 'number' : 'text'}
-                  step={valueType === 'float' ? '0.01' : '1'}
-                  required
-                />
-              </>
-            )}
+            {renderValueInput()}
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">
-              {editMode ? 'Save Changes' : 'Add Property'}
-            </Button>
+            <Button type="submit">{editMode ? 'Save Changes' : 'Add Property'}</Button>
           </div>
         </form>
       </DialogContent>
