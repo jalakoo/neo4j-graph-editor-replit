@@ -174,7 +174,10 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           // Try to parse numbers and booleans from strings
           if (value.toLowerCase() === 'true') convertedValue = true;
           else if (value.toLowerCase() === 'false') convertedValue = false;
-          else if (!isNaN(Number(value))) {
+          else if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+            // ISO 8601 datetime string - convert to Neo4j datetime
+            convertedValue = `datetime('${value}')`;
+          } else if (!isNaN(Number(value))) {
             // If it's a whole number, treat as integer
             if (Number.isInteger(Number(value))) {
               convertedValue = `toInteger(${Number(value)})`;
@@ -185,13 +188,17 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         } else if (Number.isInteger(value)) {
           // If the value is already an integer
           convertedValue = `toInteger(${value})`;
+        } else if (value instanceof Date) {
+          // Convert Date objects to Neo4j datetime
+          convertedValue = `datetime('${value.toISOString()}')`;
         }
 
         const query = isNode
           ? `
             MATCH (n)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
-            SET n[$key] = ${typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+            SET n[$key] = ${typeof convertedValue === 'string' && 
+              (convertedValue.startsWith('toInteger') || convertedValue.startsWith('datetime'))
               ? convertedValue 
               : '$value'}
             RETURN n
@@ -199,7 +206,8 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           : `
             MATCH ()-[r]->()
             WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
-            SET r[$key] = ${typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+            SET r[$key] = ${typeof convertedValue === 'string' && 
+              (convertedValue.startsWith('toInteger') || convertedValue.startsWith('datetime'))
               ? convertedValue 
               : '$value'}
             RETURN r
@@ -208,8 +216,9 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         const result = await tx.run(query, {
           elementId,
           key,
-          value: typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
-            ? parseInt(convertedValue.replace('toInteger(', '').replace(')', ''), 10)
+          value: typeof convertedValue === 'string' && 
+            (convertedValue.startsWith('toInteger') || convertedValue.startsWith('datetime'))
+            ? convertedValue.replace(/^(toInteger|datetime)\('(.+)'\)$/, '$2')
             : convertedValue
         });
 
