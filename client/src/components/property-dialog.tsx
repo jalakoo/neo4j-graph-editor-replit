@@ -30,6 +30,9 @@ interface Props {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (key: string, value: any) => void;
+  editMode?: boolean;
+  initialKey?: string;
+  initialValue?: any;
 }
 
 type ValueType = 'string' | 'integer' | 'float' | 'boolean' | 'datetime' | 'point';
@@ -47,8 +50,32 @@ function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
   return null;
 }
 
-export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
-  const [key, setKey] = useState("");
+// Helper function to determine value type
+function detectValueType(value: any): ValueType {
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? 'integer' : 'float';
+  }
+  if (typeof value === 'object') {
+    if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
+      return 'datetime';
+    }
+    if (value && 'latitude' in value && 'longitude' in value) {
+      return 'point';
+    }
+  }
+  return 'string';
+}
+
+export function PropertyDialog({ 
+  isOpen, 
+  onOpenChange, 
+  onSubmit,
+  editMode = false,
+  initialKey = "",
+  initialValue = "" 
+}: Props) {
+  const [key, setKey] = useState(initialKey);
   const [value, setValue] = useState("");
   const [valueType, setValueType] = useState<ValueType>("string");
   const [boolValue, setBoolValue] = useState(false);
@@ -59,6 +86,50 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [longitude, setLongitude] = useState("");
   const [height, setHeight] = useState("");
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
+
+  // Initialize form when dialog opens
+  useEffect(() => {
+    if (isOpen && editMode && initialValue !== undefined) {
+      const type = detectValueType(initialValue);
+      setValueType(type);
+      setKey(initialKey);
+
+      switch (type) {
+        case 'boolean':
+          setBoolValue(Boolean(initialValue));
+          break;
+        case 'datetime':
+          const date = new Date(initialValue);
+          setDate(date);
+          setTime(format(date, 'HH:mm'));
+          break;
+        case 'point':
+          if (typeof initialValue === 'object' && 'latitude' in initialValue && 'longitude' in initialValue) {
+            setLatitude(String(initialValue.latitude));
+            setLongitude(String(initialValue.longitude));
+            if ('height' in initialValue && initialValue.height !== undefined) {
+              setHeight(String(initialValue.height));
+            }
+            setMarkerPosition([initialValue.latitude, initialValue.longitude]);
+          }
+          break;
+        default:
+          setValue(String(initialValue));
+      }
+    } else if (!editMode) {
+      // Reset form for new property
+      setKey("");
+      setValue("");
+      setBoolValue(false);
+      setDate(undefined);
+      setTime("00:00");
+      setLatitude("");
+      setLongitude("");
+      setHeight("");
+      setMarkerPosition(null);
+      setValueType("string");
+    }
+  }, [isOpen, editMode, initialValue, initialKey]);
 
   // Get timezone abbreviation
   const getTimezoneAbbr = () => {
@@ -121,36 +192,14 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     }
 
     onSubmit(key.trim(), finalValue);
-    setKey("");
-    setValue("");
-    setBoolValue(false);
-    setDate(undefined);
-    setTime("00:00");
-    setLatitude("");
-    setLongitude("");
-    setHeight("");
-    setMarkerPosition(null);
-    setValueType("string");
     onOpenChange(false);
   };
 
-  const handleTypeChange = (type: ValueType) => {
-    setValueType(type);
-    setValue("");
-    setBoolValue(false);
-    setDate(undefined);
-    setTime("00:00");
-    setLatitude("");
-    setLongitude("");
-    setHeight("");
-    setMarkerPosition(null);
-  };
-
-  const handleLocationSelect = (lat: number, lng: number) => {
+  const handleLocationSelect = useCallback((lat: number, lng: number) => {
     setLatitude(lat.toFixed(6));
     setLongitude(lng.toFixed(6));
     setMarkerPosition([lat, lng]);
-  };
+  }, []);
 
   const handleCoordinateInput = (
     value: string,
@@ -178,7 +227,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add New Property</DialogTitle>
+          <DialogTitle>{editMode ? 'Edit Property' : 'Add New Property'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -190,25 +239,28 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
               onChange={(e) => setKey(e.target.value)}
               placeholder="Enter property name"
               required
+              disabled={editMode}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Value Type</Label>
-            <Select value={valueType} onValueChange={handleTypeChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select value type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="string">Text</SelectItem>
-                <SelectItem value="integer">Integer</SelectItem>
-                <SelectItem value="float">Float</SelectItem>
-                <SelectItem value="boolean">True/False</SelectItem>
-                <SelectItem value="datetime">Date & Time</SelectItem>
-                <SelectItem value="point">Geographic Point</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!editMode && (
+            <div className="space-y-2">
+              <Label>Value Type</Label>
+              <Select value={valueType} onValueChange={setValueType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select value type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="string">Text</SelectItem>
+                  <SelectItem value="integer">Integer</SelectItem>
+                  <SelectItem value="float">Float</SelectItem>
+                  <SelectItem value="boolean">True/False</SelectItem>
+                  <SelectItem value="datetime">Date & Time</SelectItem>
+                  <SelectItem value="point">Geographic Point</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             {valueType === 'boolean' ? (
@@ -344,7 +396,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
               Cancel
             </Button>
             <Button type="submit">
-              Add Property
+              {editMode ? 'Save Changes' : 'Add Property'}
             </Button>
           </div>
         </form>

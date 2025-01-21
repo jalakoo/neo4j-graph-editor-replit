@@ -13,11 +13,12 @@ export function DetailsDrawer() {
   const { updateProperty, refreshElement } = useNeo4jStore();
   const { toast } = useToast();
   const [isAddingProperty, setIsAddingProperty] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<{ key: string, value: any } | null>(null);
 
   const isEdge = selectedElement && 'source' in selectedElement;
   const title = isEdge ? 'Relationship Details' : 'Node Details';
 
-  const handlePropertyUpdate = async (key: string, value: string) => {
+  const handlePropertyUpdate = async (key: string, value: any) => {
     if (!selectedElement) return;
 
     try {
@@ -67,6 +68,10 @@ export function DetailsDrawer() {
     }
   };
 
+  const handleEditStart = (key: string, value: any) => {
+    setEditingProperty({ key, value });
+  };
+
   return (
     <div className="fixed top-[73px] right-0 w-[400px] h-[calc(100vh-73px)] border-l bg-background shadow-lg">
       <div className="p-6 flex items-center justify-between">
@@ -99,6 +104,7 @@ export function DetailsDrawer() {
                   <EditableProperty
                     propertyKey={key}
                     value={String(value)}
+                    onEdit={() => handleEditStart(key, value)}
                     onSave={(newValue) => handlePropertyUpdate(key, newValue)}
                   />
                 )}
@@ -117,6 +123,15 @@ export function DetailsDrawer() {
         isOpen={isAddingProperty}
         onOpenChange={setIsAddingProperty}
         onSubmit={handleAddProperty}
+      />
+
+      <PropertyDialog
+        isOpen={editingProperty !== null}
+        onOpenChange={() => setEditingProperty(null)}
+        onSubmit={(key, value) => handlePropertyUpdate(key, value)}
+        editMode={true}
+        initialKey={editingProperty?.key}
+        initialValue={editingProperty?.value}
       />
     </div>
   );
