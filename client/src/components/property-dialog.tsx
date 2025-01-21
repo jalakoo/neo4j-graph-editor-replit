@@ -94,6 +94,18 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     setTime("00:00");
   };
 
+  const validateTime = (input: string) => {
+    const [hours, minutes] = input.split(':').map(Number);
+    return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = e.target.value;
+    if (validateTime(newTime)) {
+      setTime(newTime);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -182,8 +194,14 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                   <Input
                     type="time"
                     value={time}
-                    onChange={(e) => setTime(e.target.value)}
+                    onChange={handleTimeChange}
+                    pattern="[0-9]{2}:[0-9]{2}"
+                    title="Enter time in 24-hour format (HH:mm)"
+                    required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    24-hour format (00:00 - 23:59)
+                  </p>
                 </div>
               </div>
             ) : (
