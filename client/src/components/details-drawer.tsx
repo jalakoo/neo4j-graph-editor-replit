@@ -13,12 +13,11 @@ export function DetailsDrawer() {
   const { updateProperty, refreshElement } = useNeo4jStore();
   const { toast } = useToast();
   const [isAddingProperty, setIsAddingProperty] = useState(false);
-  const [editingProperty, setEditingProperty] = useState<{ key: string, value: any } | null>(null);
 
   const isEdge = selectedElement && 'source' in selectedElement;
   const title = isEdge ? 'Relationship Details' : 'Node Details';
 
-  const handlePropertyUpdate = async (key: string, value: any) => {
+  const handlePropertyUpdate = async (key: string, value: string) => {
     if (!selectedElement) return;
 
     try {
@@ -68,10 +67,6 @@ export function DetailsDrawer() {
     }
   };
 
-  const handleEditStart = (key: string, value: any) => {
-    setEditingProperty({ key, value });
-  };
-
   return (
     <div className="fixed top-[73px] right-0 w-[400px] h-[calc(100vh-73px)] border-l bg-background shadow-lg">
       <div className="p-6 flex items-center justify-between">
@@ -98,12 +93,15 @@ export function DetailsDrawer() {
                 <p className="text-sm font-medium text-muted-foreground">
                   {key}
                 </p>
-                <EditableProperty
-                  propertyKey={key}
-                  value={value}
-                  onEdit={() => handleEditStart(key, value)}
-                  onSave={(newValue) => handlePropertyUpdate(key, newValue)}
-                />
+                {typeof value === 'object' ? (
+                  <p className="text-sm">{JSON.stringify(value)}</p>
+                ) : (
+                  <EditableProperty
+                    propertyKey={key}
+                    value={String(value)}
+                    onSave={(newValue) => handlePropertyUpdate(key, newValue)}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -119,15 +117,6 @@ export function DetailsDrawer() {
         isOpen={isAddingProperty}
         onOpenChange={setIsAddingProperty}
         onSubmit={handleAddProperty}
-      />
-
-      <PropertyDialog
-        isOpen={editingProperty !== null}
-        onOpenChange={() => setEditingProperty(null)}
-        onSubmit={(key, value) => handlePropertyUpdate(key, value)}
-        editMode={true}
-        initialKey={editingProperty?.key}
-        initialValue={editingProperty?.value}
       />
     </div>
   );
