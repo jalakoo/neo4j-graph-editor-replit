@@ -91,6 +91,28 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
   const [height, setHeight] = useState("");
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
 
+  // Update time display when UTC mode changes
+  useEffect(() => {
+    if (date) {
+      const [hours, minutes] = time.split(':').map(Number);
+      const updatedDate = new Date(date);
+
+      if (isUtc) {
+        // Convert local time to UTC display
+        const localHours = updatedDate.getHours();
+        const localMinutes = updatedDate.getMinutes();
+        updatedDate.setUTCHours(localHours, localMinutes);
+      } else {
+        // Convert UTC time to local display
+        const utcHours = updatedDate.getUTCHours();
+        const utcMinutes = updatedDate.getUTCMinutes();
+        updatedDate.setHours(utcHours, utcMinutes);
+      }
+
+      setTime(format(updatedDate, 'HH:mm'));
+    }
+  }, [isUtc, date, time]);
+
   // Reset form when dialog opens/closes or initialProperty changes
   useEffect(() => {
     if (isOpen && initialProperty) {
@@ -122,7 +144,14 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
             datetime = new Date(initialProperty.value);
           }
           setDate(datetime);
-          setTime(format(datetime, 'HH:mm'));
+
+          // Set initial time based on UTC mode
+          if (isUtc) {
+            setTime(format(datetime, 'HH:mm'));
+          } else {
+            const localDate = new Date(datetime);
+            setTime(format(localDate, 'HH:mm'));
+          }
           break;
         case 'point':
           const pointValue = initialProperty.value;
@@ -152,7 +181,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
       setMarkerPosition(null);
       setValueType("string");
     }
-  }, [isOpen, initialProperty]);
+  }, [isOpen, initialProperty, isUtc]);
 
   // Get timezone abbreviation
   const getTimezoneAbbr = () => {
@@ -186,8 +215,10 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
           // If UTC is selected, use UTC methods to set time
           datetime.setUTCHours(hours, minutes, 0, 0);
         } else {
-          // If local time is selected, first set local time then convert to UTC
-          datetime.setHours(hours, minutes, 0, 0);
+          // If local time is selected, convert local time to UTC
+          const localDate = new Date(datetime);
+          localDate.setHours(hours, minutes, 0, 0);
+          datetime.setUTCHours(localDate.getHours(), localDate.getMinutes(), 0, 0);
         }
 
         finalValue = datetime.toISOString();
