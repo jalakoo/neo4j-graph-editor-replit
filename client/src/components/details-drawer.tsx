@@ -2,13 +2,17 @@ import { useGraphStore } from "@/lib/graph-store";
 import { useNeo4jStore } from "@/lib/neo4j-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EditableProperty } from "@/components/ui/editable-property";
-import { HelpCircle } from "lucide-react";
+import { PropertyDialog } from "./property-dialog";
+import { Button } from "@/components/ui/button";
+import { HelpCircle, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export function DetailsDrawer() {
   const { selectedElement, setSelectedElement } = useGraphStore();
   const { updateProperty, refreshElement } = useNeo4jStore();
   const { toast } = useToast();
+  const [isAddingProperty, setIsAddingProperty] = useState(false);
 
   const isEdge = selectedElement && 'source' in selectedElement;
   const title = isEdge ? 'Relationship Details' : 'Node Details';
@@ -38,12 +42,47 @@ export function DetailsDrawer() {
     }
   };
 
+  const handleAddProperty = async (key: string, value: string) => {
+    if (!selectedElement) return;
+
+    try {
+      await updateProperty(selectedElement.id, key, value, !isEdge);
+
+      // Refresh the element data
+      const refreshedElement = await refreshElement(selectedElement.id, !isEdge);
+      if (refreshedElement) {
+        setSelectedElement(refreshedElement);
+      }
+
+      toast({
+        title: "Success",
+        description: "Property added successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add property",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="fixed top-[73px] right-0 w-[400px] h-[calc(100vh-73px)] border-l bg-background shadow-lg">
-      <div className="p-6">
+      <div className="p-6 flex items-center justify-between">
         <h2 className="text-lg font-semibold">
           {selectedElement ? title : 'Details'}
         </h2>
+        {selectedElement && (
+          <Button
+            size="sm"
+            onClick={() => setIsAddingProperty(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Property
+          </Button>
+        )}
       </div>
 
       {selectedElement ? (
@@ -73,6 +112,12 @@ export function DetailsDrawer() {
           <p>Click on a Node or a Relationship to view its details</p>
         </div>
       )}
+
+      <PropertyDialog 
+        isOpen={isAddingProperty}
+        onOpenChange={setIsAddingProperty}
+        onSubmit={handleAddProperty}
+      />
     </div>
   );
 }
