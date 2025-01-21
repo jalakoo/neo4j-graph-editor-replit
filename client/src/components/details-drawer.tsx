@@ -98,16 +98,12 @@ export function DetailsDrawer() {
                 <p className="text-sm font-medium text-muted-foreground">
                   {key}
                 </p>
-                {typeof value === 'object' ? (
-                  <p className="text-sm">{JSON.stringify(value)}</p>
-                ) : (
-                  <EditableProperty
-                    propertyKey={key}
-                    value={String(value)}
-                    onEdit={() => handleEditStart(key, value)}
-                    onSave={(newValue) => handlePropertyUpdate(key, newValue)}
-                  />
-                )}
+                <EditableProperty
+                  propertyKey={key}
+                  value={value}
+                  onEdit={() => handleEditStart(key, value)}
+                  onSave={(newValue) => handlePropertyUpdate(key, newValue)}
+                />
               </div>
             ))}
           </div>
