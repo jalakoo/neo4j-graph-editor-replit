@@ -20,8 +20,6 @@ interface Neo4jStore {
   loadGraph: () => Promise<{ nodes: any[], edges: any[] }>;
   updateProperty: (elementId: string, key: string, value: any, isNode: boolean) => Promise<void>;
   refreshElement: (elementId: string, isNode: boolean) => Promise<any>;
-  createNode: (node: { id: string; label: string; [key: string]: any }) => Promise<void>;
-  createEdge: (edge: { id: string; source: string; target: string; label: string; [key: string]: any }) => Promise<void>;
 }
 
 // Cookie names
@@ -95,76 +93,6 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     });
   },
 
-  createNode: async (node) => {
-    const { driver } = get();
-    if (!driver) throw new Error("Not connected to database");
-
-    const session: Session = driver.session();
-    try {
-      await session.executeWrite(async (tx) => {
-        // Convert properties to Neo4j format
-        const properties = { ...node };
-        delete properties.id;
-        delete properties.label;
-
-        await tx.run(`
-          CREATE (n:Node)
-          SET n = $properties
-          SET n.id = $id
-          SET n.name = $label
-          RETURN n
-        `, {
-          id: node.id,
-          label: node.label,
-          properties
-        });
-      });
-    } catch (error) {
-      console.error('Error creating node:', error);
-      throw error;
-    } finally {
-      await session.close();
-    }
-  },
-
-  createEdge: async (edge) => {
-    const { driver } = get();
-    if (!driver) throw new Error("Not connected to database");
-
-    const session: Session = driver.session();
-    try {
-      await session.executeWrite(async (tx) => {
-        // Convert properties to Neo4j format
-        const properties = { ...edge };
-        delete properties.id;
-        delete properties.label;
-        delete properties.source;
-        delete properties.target;
-
-        await tx.run(`
-          MATCH (source:Node {id: $sourceId})
-          MATCH (target:Node {id: $targetId})
-          CREATE (source)-[r:RELATES_TO]->(target)
-          SET r = $properties
-          SET r.id = $id
-          SET r.label = $label
-          RETURN r
-        `, {
-          sourceId: edge.source,
-          targetId: edge.target,
-          id: edge.id,
-          label: edge.label,
-          properties
-        });
-      });
-    } catch (error) {
-      console.error('Error creating edge:', error);
-      throw error;
-    } finally {
-      await session.close();
-    }
-  },
-
   loadGraph: async () => {
     const { driver } = get();
     if (!driver) throw new Error("Not connected to database");
@@ -172,34 +100,30 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
     const session: Session = driver.session();
     try {
       const result = await session.executeRead(async (tx) => {
-        console.log('Loading nodes from Neo4j...');
         const nodesResult = await tx.run(`
-          MATCH (n:Node)
+          MATCH (n)
           RETURN 
             n.id as id,
-            n.name as label,
+            n.name as name,
             properties(n) as properties,
             id(n) as elementId
         `);
 
         const nodes = nodesResult.records.map(record => {
           const id = record.get('id');
-          const label = record.get('label');
+          const name = record.get('name');
           const properties = record.get('properties');
           const elementId = record.get('elementId').toString();
 
-          const node = {
+          return {
             id: id || elementId,
-            label: label || id || elementId,
+            label: name || id || elementId,
             ...properties
           };
-          console.log('Loaded node:', node);
-          return node;
         });
 
-        console.log('Loading edges from Neo4j...');
         const edgesResult = await tx.run(`
-          MATCH (source:Node)-[r]->(target:Node)
+          MATCH (source)-[r]->(target)
           RETURN 
             r.id as id,
             r.label as label,
@@ -221,7 +145,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           const targetId = record.get('targetId') || record.get('targetElementId').toString();
           const type = record.get('type');
 
-          const edge = {
+          return {
             id: id || elementId,
             label: label || type || 'connects to',
             source: sourceId,
@@ -229,11 +153,8 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             type,
             ...properties
           };
-          console.log('Loaded edge:', edge);
-          return edge;
         });
 
-        console.log('Total nodes:', nodes.length, 'Total edges:', edges.length);
         return { nodes, edges };
       });
 
@@ -289,11 +210,11 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
 
         const query = isNode
           ? `
-            MATCH (n:Node)
+            MATCH (n)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
-            SET n[$key] = ${useRawValue ? convertedValue :
-              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
-                ? convertedValue
+            SET n[$key] = ${useRawValue ? convertedValue : 
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+                ? convertedValue 
                 : '$value'}
             RETURN n
           `
@@ -301,8 +222,8 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
             MATCH ()-[r]->()
             WHERE r.id = $elementId OR ID(r) = toInteger($elementId)
             SET r[$key] = ${useRawValue ? convertedValue :
-              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
-                ? convertedValue
+              typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
+                ? convertedValue 
                 : '$value'}
             RETURN r
           `;
@@ -311,7 +232,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
           elementId,
           key,
           value: useRawValue ? null : (
-            typeof convertedValue === 'string' && convertedValue.startsWith('toInteger')
+            typeof convertedValue === 'string' && convertedValue.startsWith('toInteger') 
               ? parseInt(convertedValue.replace('toInteger(', '').replace(')', ''), 10)
               : convertedValue
           )
@@ -338,7 +259,7 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
       const result = await session.executeRead(async (tx) => {
         if (isNode) {
           const { records } = await tx.run(`
-            MATCH (n:Node)
+            MATCH (n)
             WHERE n.id = $elementId OR ID(n) = toInteger($elementId)
             RETURN 
               n.id as id,
