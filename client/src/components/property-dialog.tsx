@@ -26,6 +26,13 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [boolValue, setBoolValue] = useState(false);
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState("00:00");
+  const [isUtc, setIsUtc] = useState(true);
+
+  // Get timezone abbreviation
+  const getTimezoneAbbr = () => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Date().toLocaleTimeString('en-us',{timeZoneName:'short'}).split(' ')[2];
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +56,20 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
         const [hours, minutes] = time.split(':').map(Number);
         const datetime = new Date(date);
         datetime.setHours(hours, minutes);
-        finalValue = datetime.toISOString();
+
+        // If in local mode, convert to UTC before storing
+        if (!isUtc) {
+          const utcMillis = Date.UTC(
+            datetime.getFullYear(),
+            datetime.getMonth(),
+            datetime.getDate(),
+            datetime.getHours(),
+            datetime.getMinutes()
+          );
+          finalValue = new Date(utcMillis).toISOString();
+        } else {
+          finalValue = datetime.toISOString();
+        }
         break;
       default:
         if (!value.trim()) return;
@@ -121,6 +141,17 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
               </div>
             ) : valueType === 'datetime' ? (
               <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Time Format</Label>
+                  <div className="flex items-center space-x-2">
+                    <Label>Local {!isUtc && `(${getTimezoneAbbr()})`}</Label>
+                    <Switch
+                      checked={isUtc}
+                      onCheckedChange={setIsUtc}
+                    />
+                    <Label>UTC</Label>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label>Date</Label>
                   <Popover>
@@ -147,7 +178,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                   </Popover>
                 </div>
                 <div className="space-y-2">
-                  <Label>Time</Label>
+                  <Label>Time{isUtc ? " (UTC)" : ""}</Label>
                   <Input
                     type="time"
                     value={time}
