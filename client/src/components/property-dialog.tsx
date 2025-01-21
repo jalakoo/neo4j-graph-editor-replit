@@ -49,17 +49,21 @@ function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
 }
 
 function detectValueType(value: any): ValueType {
+  if (value === null || value === undefined) return 'string';
+
+  // Check for point type first
+  if (typeof value === 'object' && 'latitude' in value && 'longitude' in value) {
+    return 'point';
+  }
+
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'number') {
     return Number.isInteger(value) ? 'integer' : 'float';
   }
   if (typeof value === 'string') {
     if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) return 'datetime';
-    if (!isNaN(parseInt(value))) return 'integer';
-    if (!isNaN(parseFloat(value))) return 'float';
-  }
-  if (typeof value === 'object' && value !== null && 'latitude' in value && 'longitude' in value) {
-    return 'point';
+    if (!isNaN(parseInt(value)) && value.trim() === parseInt(value).toString()) return 'integer';
+    if (!isNaN(parseFloat(value)) && value.trim() === parseFloat(value).toString()) return 'float';
   }
   return 'string';
 }
