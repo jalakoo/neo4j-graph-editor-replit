@@ -5,6 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 
 interface Props {
   isOpen: boolean;
@@ -12,13 +17,15 @@ interface Props {
   onSubmit: (key: string, value: any) => void;
 }
 
-type ValueType = 'string' | 'integer' | 'float' | 'boolean';
+type ValueType = 'string' | 'integer' | 'float' | 'boolean' | 'datetime';
 
 export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
   const [valueType, setValueType] = useState<ValueType>("string");
   const [boolValue, setBoolValue] = useState(false);
+  const [date, setDate] = useState<Date>();
+  const [time, setTime] = useState("00:00");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +44,13 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
       case 'boolean':
         finalValue = boolValue;
         break;
+      case 'datetime':
+        if (!date) return;
+        const [hours, minutes] = time.split(':').map(Number);
+        const datetime = new Date(date);
+        datetime.setHours(hours, minutes);
+        finalValue = datetime.toISOString();
+        break;
       default:
         if (!value.trim()) return;
         finalValue = value;
@@ -46,6 +60,8 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     setKey("");
     setValue("");
     setBoolValue(false);
+    setDate(undefined);
+    setTime("00:00");
     setValueType("string");
     onOpenChange(false);
   };
@@ -54,6 +70,8 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     setValueType(type);
     setValue(""); // Clear value when type changes
     setBoolValue(false);
+    setDate(undefined);
+    setTime("00:00");
   };
 
   return (
@@ -86,6 +104,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                 <SelectItem value="integer">Integer</SelectItem>
                 <SelectItem value="float">Float</SelectItem>
                 <SelectItem value="boolean">True/False</SelectItem>
+                <SelectItem value="datetime">Date & Time</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -99,6 +118,42 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                   checked={boolValue}
                   onCheckedChange={setBoolValue}
                 />
+              </div>
+            ) : valueType === 'datetime' ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label>Time</Label>
+                  <Input
+                    type="time"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                  />
+                </div>
               </div>
             ) : (
               <>
