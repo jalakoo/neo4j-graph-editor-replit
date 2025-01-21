@@ -183,7 +183,14 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                     type="time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
+                    aria-label="Select time in 24-hour format"
+                    className="font-mono"
+                    placeholder="14:30"
+                    format="24"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Enter time in 24-hour format (e.g., 14:30)
+                  </p>
                 </div>
               </div>
             ) : (
@@ -203,9 +210,9 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
             >
               Cancel
