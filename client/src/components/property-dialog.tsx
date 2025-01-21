@@ -3,13 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Upload } from "lucide-react";
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix Leaflet default marker icon issue - using import URLs instead of require
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface Props {
   isOpen: boolean;
@@ -17,7 +27,20 @@ interface Props {
   onSubmit: (key: string, value: any) => void;
 }
 
-type ValueType = 'string' | 'integer' | 'float' | 'boolean' | 'datetime';
+type ValueType = 'string' | 'integer' | 'float' | 'boolean' | 'datetime' | 'point';
+
+interface MapClickHandlerProps {
+  onLocationSelect: (lat: number, lng: number) => void;
+}
+
+function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
+  useMapEvents({
+    click(e) {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
 
 export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [key, setKey] = useState("");
@@ -27,6 +50,10 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState("00:00");
   const [isUtc, setIsUtc] = useState(true);
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [height, setHeight] = useState("");
+  const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
 
   // Get timezone abbreviation
   const getTimezoneAbbr = () => {
@@ -71,6 +98,18 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
           finalValue = datetime.toISOString();
         }
         break;
+      case 'point':
+        if (!latitude || !longitude) return;
+        const lat = parseFloat(latitude);
+        const lng = parseFloat(longitude);
+        const h = height ? parseFloat(height) : null;
+
+        if (isNaN(lat) || isNaN(lng) || (height && isNaN(h as number))) return;
+
+        finalValue = h !== null ? 
+          { latitude: lat, longitude: lng, height: h } :
+          { latitude: lat, longitude: lng };
+        break;
       default:
         if (!value.trim()) return;
         finalValue = value;
@@ -82,6 +121,10 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     setBoolValue(false);
     setDate(undefined);
     setTime("00:00");
+    setLatitude("");
+    setLongitude("");
+    setHeight("");
+    setMarkerPosition(null);
     setValueType("string");
     onOpenChange(false);
   };
@@ -92,11 +135,43 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
     setBoolValue(false);
     setDate(undefined);
     setTime("00:00");
+    setLatitude("");
+    setLongitude("");
+    setHeight("");
+    setMarkerPosition(null);
+  };
+
+  const handleLocationSelect = (lat: number, lng: number) => {
+    setLatitude(lat.toFixed(6));
+    setLongitude(lng.toFixed(6));
+    setMarkerPosition([lat, lng]);
+  };
+
+  const handleCoordinateInput = (
+    value: string,
+    setter: (value: string) => void,
+    isLat = false
+  ) => {
+    const num = parseFloat(value);
+    if (!isNaN(num)) {
+      const valid = isLat ? num >= -90 && num <= 90 : num >= -180 && num <= 180;
+      if (valid) {
+        setter(value);
+        if (value && (isLat ? longitude : latitude)) {
+          setMarkerPosition([
+            isLat ? num : parseFloat(latitude),
+            isLat ? parseFloat(longitude) : num
+          ]);
+        }
+      }
+    } else if (value === '' || value === '-') {
+      setter(value);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add New Property</DialogTitle>
         </DialogHeader>
@@ -125,6 +200,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                 <SelectItem value="float">Float</SelectItem>
                 <SelectItem value="boolean">True/False</SelectItem>
                 <SelectItem value="datetime">Date & Time</SelectItem>
+                <SelectItem value="point">Geographic Point</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -184,6 +260,58 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                   />
+                </div>
+              </div>
+            ) : valueType === 'point' ? (
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="latitude">Latitude</Label>
+                    <Input
+                      id="latitude"
+                      value={latitude}
+                      onChange={(e) => handleCoordinateInput(e.target.value, setLatitude, true)}
+                      placeholder="-90 to 90"
+                      required
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="longitude">Longitude</Label>
+                    <Input
+                      id="longitude"
+                      value={longitude}
+                      onChange={(e) => handleCoordinateInput(e.target.value, setLongitude)}
+                      placeholder="-180 to 180"
+                      required
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="height">Height (m)</Label>
+                    <Input
+                      id="height"
+                      value={height}
+                      onChange={(e) => setHeight(e.target.value)}
+                      placeholder="Optional"
+                      type="number"
+                      step="0.1"
+                    />
+                  </div>
+                </div>
+                <div className="h-[300px] w-full rounded-md border">
+                  <MapContainer
+                    center={markerPosition || [0, 0]}
+                    zoom={2}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                    <MapClickHandler onLocationSelect={handleLocationSelect} />
+                    {markerPosition && (
+                      <Marker position={markerPosition} />
+                    )}
+                  </MapContainer>
                 </div>
               </div>
             ) : (

@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import neo4j, { Driver, Session } from 'neo4j-driver';
 import { getCookie, setCookie, deleteCookie } from './cookie-utils';
 
+interface PointValue {
+  latitude: number;
+  longitude: number;
+  height?: number;
+}
+
 interface Neo4jStore {
   url: string;
   username: string;
@@ -191,6 +197,15 @@ export const useNeo4jStore = create<Neo4jStore>((set, get) => ({
         } else if (Number.isInteger(value)) {
           // If the value is already an integer
           convertedValue = `toInteger(${value})`;
+        } else if (typeof value === 'object' && 'latitude' in value && 'longitude' in value) {
+          // Handle point type
+          const point = value as PointValue;
+          if ('height' in point && point.height !== undefined) {
+            convertedValue = `point({ latitude: ${point.latitude}, longitude: ${point.longitude}, height: ${point.height} })`;
+          } else {
+            convertedValue = `point({ latitude: ${point.latitude}, longitude: ${point.longitude} })`;
+          }
+          useRawValue = true;
         }
 
         const query = isNode
