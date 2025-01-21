@@ -107,14 +107,16 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
           if (typeof initialProperty.value === 'object' && 'year' in initialProperty.value) {
             // Handle Neo4j DateTime object
             const dt = initialProperty.value;
+            // Convert BigInt to Number for JavaScript Date
+            const nanosToMillis = Number(dt.nanosecond) / 1_000_000;
             datetime = new Date(
-              dt.year,
-              dt.month - 1, // JavaScript months are 0-based
-              dt.day,
-              dt.hour,
-              dt.minute,
-              dt.second,
-              dt.nanosecond / 1000000 // Convert nanoseconds to milliseconds
+              Number(dt.year),
+              Number(dt.month) - 1, // JavaScript months are 0-based
+              Number(dt.day),
+              Number(dt.hour),
+              Number(dt.minute),
+              Number(dt.second),
+              nanosToMillis
             );
           } else {
             datetime = new Date(initialProperty.value);
