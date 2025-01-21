@@ -2,7 +2,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   isOpen: boolean;
@@ -10,16 +12,37 @@ interface Props {
   onSubmit: (key: string, value: string) => void;
 }
 
+type ValueType = 'string' | 'number' | 'boolean';
+
 export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
   const [key, setKey] = useState("");
   const [value, setValue] = useState("");
+  const [valueType, setValueType] = useState<ValueType>("string");
+  const [boolValue, setBoolValue] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!key.trim() || !value.trim()) return;
-    onSubmit(key.trim(), value.trim());
+    if (!key.trim()) return;
+
+    let finalValue: string;
+    switch (valueType) {
+      case 'number':
+        if (!value.trim() || isNaN(Number(value))) return;
+        finalValue = value;
+        break;
+      case 'boolean':
+        finalValue = String(boolValue);
+        break;
+      default:
+        if (!value.trim()) return;
+        finalValue = value;
+    }
+
+    onSubmit(key.trim(), finalValue);
     setKey("");
     setValue("");
+    setBoolValue(false);
+    setValueType("string");
     onOpenChange(false);
   };
 
@@ -43,14 +66,42 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="value">Property Value</Label>
-            <Input
-              id="value"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="Enter property value"
-              required
-            />
+            <Label>Value Type</Label>
+            <Select value={valueType} onValueChange={(value: ValueType) => setValueType(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select value type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="string">Text</SelectItem>
+                <SelectItem value="number">Number</SelectItem>
+                <SelectItem value="boolean">True/False</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            {valueType === 'boolean' ? (
+              <div className="flex items-center justify-between">
+                <Label htmlFor="value">Value</Label>
+                <Switch
+                  id="value"
+                  checked={boolValue}
+                  onCheckedChange={setBoolValue}
+                />
+              </div>
+            ) : (
+              <>
+                <Label htmlFor="value">Value</Label>
+                <Input
+                  id="value"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder={`Enter ${valueType} value`}
+                  type={valueType === 'number' ? 'number' : 'text'}
+                  required
+                />
+              </>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">
