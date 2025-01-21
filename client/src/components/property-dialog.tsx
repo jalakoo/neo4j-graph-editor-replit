@@ -9,16 +9,21 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, Upload } from "lucide-react";
+import { CalendarIcon, MapPin } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Fix Leaflet default marker icon issue - using import URLs instead of require
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+// Create a custom icon using MapPin from lucide-react
+const customIcon = L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+    <circle cx="12" cy="10" r="3"></circle>
+  </svg>`,
+  className: 'custom-marker-icon',
+  iconSize: [24, 24],
+  iconAnchor: [12, 24],
+  popupAnchor: [0, -24],
 });
 
 interface Props {
@@ -131,7 +136,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
 
   const handleTypeChange = (type: ValueType) => {
     setValueType(type);
-    setValue(""); // Clear value when type changes
+    setValue("");
     setBoolValue(false);
     setDate(undefined);
     setTime("00:00");
@@ -309,7 +314,7 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit }: Props) {
                     />
                     <MapClickHandler onLocationSelect={handleLocationSelect} />
                     {markerPosition && (
-                      <Marker position={markerPosition} />
+                      <Marker position={markerPosition} icon={customIcon} />
                     )}
                   </MapContainer>
                 </div>
