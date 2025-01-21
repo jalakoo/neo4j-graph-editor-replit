@@ -51,7 +51,12 @@ function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
 function detectValueType(value: any): ValueType {
   if (value === null || value === undefined) return 'string';
 
-  // Check for point type first
+  // Check for Neo4j point format
+  if (typeof value === 'object' && 'srid' in value && 'x' in value && 'y' in value) {
+    return 'point';
+  }
+
+  // Check for our internal point format
   if (typeof value === 'object' && 'latitude' in value && 'longitude' in value) {
     return 'point';
   }
@@ -98,11 +103,16 @@ export function PropertyDialog({ isOpen, onOpenChange, onSubmit, initialProperty
           setTime(format(date, 'HH:mm'));
           break;
         case 'point':
-          const point = initialProperty.value;
-          setLatitude(point.latitude.toString());
-          setLongitude(point.longitude.toString());
-          setHeight(point.height?.toString() ?? '');
-          setMarkerPosition([point.latitude, point.longitude]);
+          const pointValue = initialProperty.value;
+          // Handle both Neo4j point format and our internal format
+          const lat = 'latitude' in pointValue ? pointValue.latitude : pointValue.y;
+          const lng = 'longitude' in pointValue ? pointValue.longitude : pointValue.x;
+          const h = 'height' in pointValue ? pointValue.height : pointValue.z;
+
+          setLatitude(lat.toString());
+          setLongitude(lng.toString());
+          setHeight(h?.toString() ?? '');
+          setMarkerPosition([lat, lng]);
           break;
         default:
           setValue(String(initialProperty.value));
