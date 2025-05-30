@@ -1,6 +1,22 @@
 import { useEffect, useRef } from "react";
-import cytoscape from "cytoscape";
+import cytoscape, { EventObject, NodeDataDefinition, EdgeDataDefinition, ElementDefinition } from "cytoscape";
 import { useGraphStore } from "@/lib/graph-store";
+
+type CytoscapeElement = ElementDefinition & {
+  group: 'nodes' | 'edges';
+  data: NodeDataDefinition | EdgeDataDefinition;
+};
+
+interface CytoscapeEvent extends EventObject {
+  target: cytoscape.SingularData & {
+    data: {
+      id: string;
+      source?: string;
+      target?: string;
+      [key: string]: any;
+    };
+  };
+}
 
 export function GraphCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,23 +72,36 @@ export function GraphCanvas() {
       boxSelectionEnabled: true,
     });
 
-    cyRef.current.on("tap", "node, edge", (evt) => {
+    const handleTap = (evt: CytoscapeEvent) => {
       const element = evt.target.data();
       if ('source' in element) {
         clearSelectedNodes();
       }
       setSelectedElement(element);
-    });
+    };
 
-    cyRef.current.on("dblclick", "node", (evt) => {
+    const handleNodeDblClick = (evt: CytoscapeEvent) => {
       const node = evt.target.data();
       openNodeEditDialog(node);
-    });
+    };
 
-    cyRef.current.on("dblclick", "edge", (evt) => {
+    const handleEdgeDblClick = (evt: CytoscapeEvent) => {
       const edge = evt.target.data();
       openEdgeEditDialog(edge);
-    });
+    };
+
+    cyRef.current.on("tap", "node, edge", handleTap);
+    cyRef.current.on("dblclick", "node", handleNodeDblClick);
+    cyRef.current.on("dblclick", "edge", handleEdgeDblClick);
+
+    return () => {
+      if (cyRef.current) {
+        cyRef.current.off("tap", "node, edge", handleTap);
+        cyRef.current.off("dblclick", "node", handleNodeDblClick);
+        cyRef.current.off("dblclick", "edge", handleEdgeDblClick);
+      }
+      cyRef.current?.destroy();
+    };
 
     return () => {
       cyRef.current?.destroy();
@@ -82,12 +111,58 @@ export function GraphCanvas() {
   useEffect(() => {
     if (!cyRef.current) return;
 
-    cyRef.current.elements().remove();
-    cyRef.current.add([
-      ...nodes.map((node) => ({ data: { ...node } })),
-      ...edges.map((edge) => ({ data: { ...edge } })),
-    ]);
-    cyRef.current.layout({ name: "grid" }).run();
+    try {
+      cyRef.current.elements().remove();
+      
+      // Prepare node elements
+      const nodeElements: CytoscapeElement[] = nodes.map((node) => {
+        const { id, label, ...rest } = node;
+        return {
+          group: 'nodes' as const,
+          data: {
+            id: String(id || ''),
+            label: String(label || id || ''),
+            ...rest
+          }
+        };
+      });
+
+      // Prepare edge elements
+      const edgeElements: CytoscapeElement[] = edges.map((edge) => {
+        const { id, source, target, label, type, ...rest } = edge;
+        const edgeId = id || `${source}-${target}`;
+        return {
+          group: 'edges' as const,
+          data: {
+            id: String(edgeId),
+            source: String(source || ''),
+            target: String(target || ''),
+            label: String(label || type || ''),
+            ...rest
+          }
+        };
+      });
+
+      // Add elements to the graph
+      cyRef.current.add([...nodeElements, ...edgeElements]);
+      
+      // Apply layout
+      const layout = cyRef.current.layout({ 
+        name: 'grid',
+        fit: true,
+        padding: 30,
+        avoidOverlap: true,
+        condense: true,
+        rows: Math.ceil(Math.sqrt(nodes.length))
+      });
+      
+      layout.run();
+      
+      // Fit the graph to the viewport
+      cyRef.current.fit();
+    } catch (error) {
+      console.error('Error rendering graph:', error);
+    }
   }, [nodes, edges]);
 
   return (
